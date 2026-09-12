@@ -1,0 +1,60 @@
+{
+    // ========================================================================
+    // settings.json do VS Code -- valido nos tres sistemas.
+    //
+    // As chaves com sufixo .windows / .linux / .osx convivem no mesmo arquivo:
+    // o VS Code usa so a do sistema em que esta rodando. Por isso um arquivo
+    // unico serve Fedora, Windows e o macOS do trabalho sem editar nada.
+    // ========================================================================
+
+    // --- editor ---
+    "editor.fontSize": 13,
+    "editor.rulers": [ 80, 120 ],
+    "editor.renderWhitespace": "boundary",
+    "files.autoSave": "afterDelay",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "workbench.colorTheme": "Visual Studio Dark",
+    "window.zoomLevel": 1,
+
+    // Rmarkdown nao tem realce proprio; markdown chega perto o bastante.
+    "files.associations": {
+        "*.rmd": "markdown",
+        "*.Rmd": "markdown"
+    },
+
+    // --- terminal ---
+    "terminal.integrated.enableMultiLinePasteWarning": false,
+    // No Windows, o padrao vira PowerShell 7 quando instalado.
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.defaultProfile.linux": "bash",
+
+    // --- Python ---
+    // Sem caminho absoluto de interpretador: o uv cria .venv por projeto e a
+    // extensao Python a detecta sozinha. Fixar caminho quebra ao formatar.
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "[python]": {
+        "editor.formatOnSave": false
+    },
+
+    // --- R ---
+    "r.bracketedPaste": true,
+    "r.plot.useHttpgd": true,
+    // Caminhos por sistema: o install script reescreve estes dois quando
+    // encontra uma versao diferente de R instalada.
+    "r.rpath.windows": "C:/Program Files/R/R-4.1.0/bin/x64/R.exe",
+    "r.rpath.linux": "/usr/bin/R",
+    "r.rpath.mac": "/usr/local/bin/R",
+
+    // --- git ---
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "diffEditor.codeLens": true,
+
+    // --- Claude Code ---
+    "claudeCode.preferredLocation": "panel",
+
+    // --- diversos ---
+    "code-runner.runInTerminal": true,
+    "security.workspace.trust.untrustedFiles": "open"
+}

@@ -1,0 +1,35 @@
+# ============================================================================
+# .gitattributes -- fim de linha por tipo de arquivo
+#
+# Critico neste repositorio: script .sh com CRLF nao roda no Linux. O shell
+# le "#!/usr/bin/env bash\r" e reclama de interpretador inexistente. Como o
+# kit e clonado tanto no Windows quanto no Fedora, o fim de linha precisa ser
+# fixado aqui, e nao depender da configuracao de cada maquina.
+# ============================================================================
+
+# Padrao: o git normaliza para LF no repositorio.
+* text=auto eol=lf
+
+# Scripts POSIX: sempre LF, inclusive no checkout do Windows. O Git Bash e o
+# WSL leem LF sem problema.
+*.sh        text eol=lf
+install.sh  text eol=lf
+
+# Scripts PowerShell: CRLF. O Windows PowerShell 5.1 tolera LF, mas o padrao
+# da plataforma e CRLF e alguns editores reescrevem o arquivo inteiro se
+# encontrarem o contrario.
+*.ps1       text eol=crlf
+*.psd1      text eol=crlf
+
+# Configuracao lida pelos dois lados: LF serve em ambos.
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+Makevars    text eol=lf
+Makevars.win text eol=lf
+
+# Binarios: nunca converter.
+*.age       binary
+*.png       binary
+*.jpg       binary

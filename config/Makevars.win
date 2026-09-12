@@ -1,0 +1,19 @@
+# ============================================================================
+# Makevars.win -- flags de compilacao de pacotes R no Windows (Rtools)
+# Aplicado por install.ps1 como %USERPROFILE%\Documents\.R\Makevars.win
+#
+# Atencao: no Windows o R le Makevars.win, nao Makevars. Arquivos separados
+# de proposito -- as flags do gcc do Rtools nao sao as mesmas do Linux.
+# ============================================================================
+
+# -march=native e evitado aqui: o gcc do Rtools costuma quebrar com ele
+# em alguns pacotes com codigo SIMD. -O2 sozinho ja da a maior parte do ganho.
+CXXFLAGS = -O2 -pipe
+CFLAGS   = -O2 -pipe
+
+CXX_STD = CXX17
+
+CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations
+
+# Compilacao paralela.
+MAKEFLAGS = -j4

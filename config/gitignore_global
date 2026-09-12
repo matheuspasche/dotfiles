@@ -1,0 +1,35 @@
+# ============================================================================
+# gitignore_global -- ignorados em todo repositorio desta maquina
+# Aplicado como ~/.gitignore_global (core.excludesfile no gitconfig).
+# ============================================================================
+
+# --- sistema operacional ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- editores ---
+.vscode/settings.json
+*.swp
+*~
+
+# --- R ---
+.Rhistory
+.RData
+.Rproj.user/
+*.Rcheck/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+
+# --- segredos: nunca versionar, em nenhum repositorio ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.netrc
+.pypirc

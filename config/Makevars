@@ -1,0 +1,21 @@
+# ============================================================================
+# Makevars -- flags de compilacao de pacotes R (Linux e macOS)
+# Aplicado por install.sh como ~/.R/Makevars.
+#
+# Motivo de existir: compilar Rcpp sem esses ajustes fica lento e enche o
+# terminal de warning irrelevante de header de sistema.
+# ============================================================================
+
+# Compila para a arquitetura desta maquina. Ganho real em codigo numerico.
+# Remova -march=native se for distribuir o binario para outra maquina.
+CXXFLAGS = -O2 -march=native -pipe
+CFLAGS   = -O2 -march=native -pipe
+
+# Rcpp exige C++11 no minimo; 17 para poder usar structured bindings.
+CXX_STD = CXX17
+
+# Silencia warning que vem dos headers do proprio Rcpp/BH, nao do nosso codigo.
+CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations
+
+# Compilacao paralela dos pacotes (ajuste ao numero de nucleos).
+MAKEFLAGS = -j4

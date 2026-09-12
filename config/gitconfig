@@ -1,0 +1,76 @@
+# ============================================================================
+# gitconfig -- configuracao Git comum a todas as maquinas
+#
+# Aplicado por install.sh / install.ps1 como ~/.gitconfig.
+#
+# Nada especifico de maquina entra aqui. O que muda por maquina (credential
+# helper, caminho do editor, chave de assinatura) vai em ~/.gitconfig.local,
+# incluido no fim do arquivo e NAO versionado.
+# ============================================================================
+
+[user]
+	name = Matheus Pasche
+	# E-mail noreply do GitHub: mantem o endereco real fora dos commits publicos.
+	email = 46602805+matheuspasche@users.noreply.github.com
+
+[init]
+	defaultBranch = main
+
+[core]
+	# autocrlf=input no Linux/macOS; no Windows o install.ps1 grava "true"
+	# em ~/.gitconfig.local para converter na hora do checkout.
+	autocrlf = input
+	# Evita truncar nomes longos de arquivo no Windows.
+	longpaths = true
+	excludesfile = ~/.gitignore_global
+
+[http]
+	# Repositorios com historico grande (pacotes R com vinhetas, dados) falham
+	# no push com o buffer padrao. 1 GB resolve de vez.
+	postBuffer = 1048576000
+
+[pull]
+	# Nada de merge automatico em pull: rebase mantem o historico linear.
+	rebase = true
+
+[fetch]
+	# Remove branches locais cujo remoto ja sumiu.
+	prune = true
+
+[push]
+	# Empurra a branch atual para a de mesmo nome no remoto.
+	default = current
+	autoSetupRemote = true
+
+[merge]
+	conflictstyle = zdiff3
+
+[diff]
+	# Heuristica melhor para diffs de codigo indentado (R, Python).
+	algorithm = histogram
+	colorMoved = default
+
+[rebase]
+	autoStash = true
+
+[rerere]
+	# Lembra resolucoes de conflito ja feitas -- salva tempo em rebase longo.
+	enabled = true
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+[alias]
+	s = status --short --branch
+	l = log --oneline --graph --decorate -20
+	co = checkout
+	br = branch
+	# Desfaz o ultimo commit mantendo as mudancas no working tree.
+	undo = reset --soft HEAD~1
+
+# Configuracao local, por maquina, nao versionada. Precisa existir mesmo vazia.
+[include]
+	path = ~/.gitconfig.local

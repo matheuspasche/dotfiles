@@ -1,0 +1,249 @@
+# ============================================================================
+# pacotes.yaml -- manifesto unico de programas do ambiente
+#
+# Fonte unica da verdade. Adicione um programa AQUI e todos os scripts de
+# setup (Linux, macOS, Windows) passam a instala-lo.
+#
+# Formato: subconjunto restrito de YAML, lido por parsers proprios em awk
+# (scripts/common.sh) e PowerShell (scripts/common.ps1). NAO use recursos
+# avancados de YAML (ancoras, listas aninhadas, strings multilinha):
+# os parsers sao deliberadamente simples para nao exigir dependencia externa.
+#
+# Regras do formato:
+#   - cada item comeca com "  - id: <slug>" (2 espacos, hifen, espaco)
+#   - demais chaves vem com 4 espacos de indentacao
+#   - valor "-" significa "nao disponivel neste gerenciador" (pula)
+#   - chaves de gerenciador: dnf, apt, brew, cask, winget, scoop
+#   - grupo: base | dados | r | python | container | jvm | opcional
+# ============================================================================
+
+pacotes:
+
+  # ---------------------------------------------------------------- base ---
+  - id: git
+    nome: Git
+    grupo: base
+    dnf: git
+    apt: git
+    brew: git
+    winget: Git.Git
+    scoop: git
+
+  - id: gh
+    nome: GitHub CLI
+    grupo: base
+    dnf: gh
+    apt: gh
+    brew: gh
+    winget: GitHub.cli
+    scoop: gh
+
+  - id: curl
+    nome: curl
+    grupo: base
+    dnf: curl
+    apt: curl
+    brew: curl
+    winget: cURL.cURL
+    scoop: curl
+
+  - id: ripgrep
+    nome: ripgrep
+    grupo: base
+    dnf: ripgrep
+    apt: ripgrep
+    brew: ripgrep
+    winget: BurntSushi.ripgrep.MSVC
+    scoop: ripgrep
+
+  - id: fd
+    nome: fd
+    grupo: base
+    dnf: fd-find
+    apt: fd-find
+    brew: fd
+    winget: sharkdp.fd
+    scoop: fd
+
+  - id: jq
+    nome: jq
+    grupo: base
+    dnf: jq
+    apt: jq
+    brew: jq
+    winget: jqlang.jq
+    scoop: jq
+
+  - id: age
+    nome: age (cifragem do cofre de segredos)
+    grupo: base
+    dnf: age
+    apt: age
+    brew: age
+    winget: FiloSottile.age
+    scoop: age
+
+  - id: vscode
+    nome: Visual Studio Code
+    grupo: base
+    dnf: code
+    apt: code
+    brew: visual-studio-code
+    cask: "sim"
+    winget: Microsoft.VisualStudioCode
+    scoop: vscode
+
+  - id: node
+    nome: Node.js LTS
+    grupo: base
+    dnf: nodejs
+    apt: nodejs
+    brew: node
+    winget: OpenJS.NodeJS.LTS
+    scoop: nodejs-lts
+
+  - id: windows-terminal
+    nome: Windows Terminal
+    grupo: base
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.WindowsTerminal
+    scoop: "-"
+
+  - id: powershell7
+    nome: PowerShell 7
+    grupo: base
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.PowerShell
+    scoop: "-"
+
+  # -------------------------------------------------------------- python ---
+  - id: python
+    nome: Python 3
+    grupo: python
+    dnf: python3
+    apt: python3
+    brew: python@3.12
+    winget: Python.Python.3.12
+    scoop: python
+
+  - id: uv
+    nome: uv (gerenciador de pacotes Python)
+    grupo: python
+    dnf: "-"
+    apt: "-"
+    brew: uv
+    winget: astral-sh.uv
+    scoop: uv
+
+  # ------------------------------------------------------------------- R ---
+  - id: r
+    nome: R
+    grupo: r
+    dnf: R
+    apt: r-base
+    brew: r
+    winget: RProject.R
+    scoop: r
+
+  - id: rstudio
+    nome: RStudio Desktop
+    grupo: r
+    dnf: "-"
+    apt: "-"
+    brew: rstudio
+    cask: "sim"
+    winget: Posit.RStudio
+    scoop: "-"
+
+  - id: rtools
+    nome: Rtools (toolchain para compilar Rcpp no Windows)
+    grupo: r
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: RProject.Rtools
+    scoop: "-"
+
+  - id: gcc
+    nome: Toolchain C/C++ (compilar Rcpp no Linux)
+    grupo: r
+    dnf: gcc-c++
+    apt: build-essential
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
+  - id: gfortran
+    nome: gfortran (dependencia de pacotes R numericos)
+    grupo: r
+    dnf: gcc-gfortran
+    apt: gfortran
+    brew: gcc
+    winget: "-"
+    scoop: "-"
+
+  # --------------------------------------------------------------- dados ---
+  - id: dbeaver
+    nome: DBeaver Community
+    grupo: dados
+    dnf: "-"
+    apt: "-"
+    brew: dbeaver-community
+    cask: "sim"
+    winget: dbeaver.dbeaver
+    scoop: dbeaver
+
+  - id: duckdb
+    nome: DuckDB CLI
+    grupo: dados
+    dnf: "-"
+    apt: "-"
+    brew: duckdb
+    winget: DuckDB.cli
+    scoop: duckdb
+
+  # ----------------------------------------------------------------- jvm ---
+  - id: java
+    nome: JDK 17 (requisito do Spark)
+    grupo: jvm
+    dnf: java-17-openjdk-devel
+    apt: openjdk-17-jdk
+    brew: openjdk@17
+    winget: EclipseAdoptium.Temurin.17.JDK
+    scoop: temurin17-jdk
+
+  # ----------------------------------------------------------- container ---
+  - id: docker
+    nome: Docker
+    grupo: container
+    dnf: docker-ce
+    apt: docker-ce
+    brew: docker
+    cask: "sim"
+    winget: Docker.DockerDesktop
+    scoop: "-"
+
+  # -------------------------------------------------------------- opcional --
+  - id: obsidian
+    nome: Obsidian
+    grupo: opcional
+    dnf: "-"
+    apt: "-"
+    brew: obsidian
+    cask: "sim"
+    winget: Obsidian.Obsidian
+    scoop: "-"
+
+  - id: firefox
+    nome: Firefox
+    grupo: opcional
+    dnf: firefox
+    apt: firefox
+    brew: firefox
+    cask: "sim"
+    winget: Mozilla.Firefox
+    scoop: "-"

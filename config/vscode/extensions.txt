@@ -1,0 +1,39 @@
+# ============================================================================
+# extensions.txt -- extensoes do VS Code, uma por linha.
+# Reinstala com:  scripts/vscode-extensoes.sh   (ou o install.ps1 no Windows)
+# Linhas com # sao ignoradas.
+# ============================================================================
+
+# --- Claude Code ---
+anthropic.claude-code
+
+# --- Python ---
+ms-python.python
+ms-python.vscode-pylance
+ms-python.debugpy
+ms-python.isort
+ms-toolsai.jupyter
+ms-toolsai.jupyter-renderers
+ms-toolsai.vscode-jupyter-cell-tags
+
+# --- R ---
+reditorsupport.r
+mikhail-arkhipov.r
+
+# --- dados / SQL ---
+mtxr.sqltools
+randomfractalsinc.duckdb-sql-tools
+
+# --- containers ---
+ms-azuretools.vscode-docker
+ms-azuretools.vscode-containers
+ms-vscode-remote.remote-wsl
+ms-vscode-remote.remote-containers
+
+# --- git ---
+eamodio.gitlens
+
+# --- utilidades ---
+formulahendry.code-runner
+clemenspeters.format-json
+ms-ceintl.vscode-language-pack-pt-br

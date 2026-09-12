@@ -1,0 +1,61 @@
+# ============================================================================
+# segredos.lista -- o que entra no cofre cifrado
+#
+# Um caminho por linha, relativo ao HOME. Linhas com # sao comentario.
+# Caminho que nao existir na maquina e simplesmente pulado.
+#
+# Lido por scripts/cofre.sh e scripts/cofre.ps1.
+#
+# REGRA: este arquivo lista NOMES de arquivos, nunca o conteudo deles.
+# Ele e versionado; o cofre gerado a partir dele NAO e (ver .gitignore).
+# ============================================================================
+
+# --- Git / GitHub ---
+.gitconfig.local
+.config/gh/hosts.yml
+.config/gh/config.yml
+
+# --- SSH ---
+# A pasta inteira: chaves privadas, publicas, config e known_hosts.
+.ssh
+
+# --- GnuPG (assinatura de commit, pass) ---
+.gnupg
+
+# --- Python / PyPI ---
+.pypirc
+.config/uv/uv.toml
+
+# --- Docker ---
+# Contem o token do registry. O daemon.json fica de fora: e configuracao,
+# nao credencial, e muda por maquina.
+.docker/config.json
+
+# --- Claude Code ---
+.claude/settings.json
+.claude/.credentials.json
+.claude.json
+
+# --- R ---
+# Renviron guarda chave de API usada em pacote R (ex.: GITHUB_PAT do remotes).
+.Renviron
+
+# --- nuvem ---
+.aws/credentials
+.aws/config
+.config/gcloud/credentials.db
+
+# --- bancos de dados ---
+.pgpass
+.my.cnf
+.duckdbrc
+
+# --- DBeaver (conexoes salvas, com senha) ---
+# Windows: AppData/Roaming/DBeaverData/workspace6/General/.dbeaver
+# Linux:   .local/share/DBeaverData/workspace6/General/.dbeaver
+.local/share/DBeaverData/workspace6/General/.dbeaver
+AppData/Roaming/DBeaverData/workspace6/General/.dbeaver
+
+# --- shell ---
+# .env pessoal com variaveis de ambiente que nao vao para repositorio.
+.env.pessoal

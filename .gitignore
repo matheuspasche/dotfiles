@@ -1,0 +1,41 @@
+# ============================================================================
+# .gitignore do kit de dotfiles
+# ============================================================================
+
+# --- cofre de segredos ---
+# O cofre cifrado NAO e versionado por padrao. Mesmo cifrado, deixa-lo fora do
+# repositorio reduz a superficie: se a passphrase vazar um dia, o atacante
+# ainda precisa achar o arquivo.
+cofre/
+*.age
+*.age.anterior
+
+# --- nada em texto claro, jamais ---
+# Rede de seguranca contra um "git add ." distraido.
+*.pem
+*.key
+*.p12
+.env
+.env.*
+!.env.example
+.netrc
+.pypirc
+id_rsa*
+id_ed25519*
+*credentials*
+*.credentials.json
+
+# --- snapshots ---
+# Gerados por maquina; nao sao configuracao. Fique com eles localmente ou
+# copie para o Drive, mas nao poluem o historico do repositorio.
+snapshots/
+
+# --- sistema operacional ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- editores ---
+.vscode/
+*.swp
+*~
