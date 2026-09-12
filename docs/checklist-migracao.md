@@ -38,7 +38,8 @@ formatado.**
 
 - [ ] Cofre gerado
 - [ ] Passphrase guardada no gerenciador de senhas, em **outro aparelho**
-- [ ] Cofre copiado para um segundo lugar (pendrive)
+- [ ] Cofre copiado para um segundo lugar -- o pendrive Ventoy:
+      `cp "/g/Meu Drive/cofre/segredos.age" /f/backup-formatacao/`
 - [ ] `cofre.ps1 -Listar` confirma que o arquivo abre
 
 ### Codigo
@@ -61,7 +62,10 @@ formatado.**
 - [ ] Chave do Windows anotada, se for OEM:
       `wmic path softwarelicensingservice get OA3xOriginalProductKey`
 - [ ] Licenca de programa pago (RStudio Pro, JetBrains, etc.)
-- [ ] Pendrive de instalacao pronto e testado (boot funciona)
+- [ ] Pendrive de instalacao pronto e testado (boot funciona).
+      O Ventoy em uso ja tem Win11 25H2 pt-BR, Fedora KDE 44 e Zorin OS 18.1.
+      **Reinstalar o Ventoy apaga tudo que estiver nele** -- inclusive o cofre
+      e o clone do kit. Copie para fora antes de mexer no pendrive.
 - [ ] Driver de rede baixado, se o snapshot indicar hardware incomum
 
 ---

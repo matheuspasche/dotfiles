@@ -16,7 +16,8 @@ de um live USB, e so depois siga este documento.
 ## Premissas
 
 - O Windows no SSD SATA liga e tem rede.
-- O cofre (`segredos.age`) esta acessivel: Google Drive, pendrive ou os dois.
+- O cofre (`segredos.age`) esta acessivel. Hoje ele vive em dois lugares:
+  `G:\Meu Drive\cofre\` e o pendrive Ventoy (`F:\backup-formatacao\`).
 - A passphrase do cofre esta no gerenciador de senhas, **em outro aparelho**.
 - Este repositorio esta no GitHub.
 
@@ -59,6 +60,10 @@ cd dotfiles
 
 O clone vai pedir login do GitHub pelo navegador. Aceite; e mais rapido que
 restaurar o token agora.
+
+> **Sem rede?** O pendrive Ventoy tem um clone completo do kit em
+> `F:\backup-formatacao\dotfiles\`. Copie para `Documents\` e siga daqui.
+> A letra do pendrive pode mudar -- procure o volume rotulado `Ventoy`.
 
 ## Passo 2 -- Stack (15 min, desatendido)
 
@@ -198,6 +203,10 @@ roteiro acima de refazer credencial por credencial.
 
 Confira `drivers-rede.txt` no snapshot mais recente: ele diz exatamente qual
 e o adaptador. Baixe o driver de outra maquina, leve no pendrive.
+
+O kit em si nao depende de rede para ser recuperado: ha um clone completo em
+`F:\backup-formatacao\dotfiles\`. O que depende de rede e a instalacao dos
+programas (winget) e o clone dos projetos.
 
 ### Preciso de Linux hoje
 
