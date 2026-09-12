@@ -1,39 +1,48 @@
 # ============================================================================
-# extensions.txt -- extensoes do VS Code, uma por linha.
-# Reinstala com:  scripts/vscode-extensoes.sh   (ou o install.ps1 no Windows)
-# Linhas com # sao ignoradas.
+# extensions.txt -- extensoes do VS Code, agrupadas
+#
+# Formato: linhas "[grupo]" abrem uma secao; as linhas seguintes sao os
+# identificadores daquele grupo, um por linha.
+#
+# O install instala so os grupos listados em VSCODE_EXTENSOES no perfil.conf.
+# Quem nao escreve R nao precisa esperar a extensao de R baixar.
+#
+# Grupos disponiveis: base python r dados container escrita
 # ============================================================================
 
-# --- Claude Code ---
+[base]
+# Claude Code dentro do editor.
 anthropic.claude-code
+eamodio.gitlens
+formulahendry.code-runner
+editorconfig.editorconfig
 
-# --- Python ---
+[python]
 ms-python.python
 ms-python.vscode-pylance
 ms-python.debugpy
-ms-python.isort
+charliermarsh.ruff
 ms-toolsai.jupyter
 ms-toolsai.jupyter-renderers
 ms-toolsai.vscode-jupyter-cell-tags
 
-# --- R ---
+[r]
+# A extensao oficial do R; precisa do pacote languageserver instalado no R.
 reditorsupport.r
-mikhail-arkhipov.r
+rdebugger.r-debugger
 
-# --- dados / SQL ---
+[dados]
 mtxr.sqltools
-randomfractalsinc.duckdb-sql-tools
+mechatroner.rainbow-csv
+grapecity.gc-excelviewer
 
-# --- containers ---
+[container]
 ms-azuretools.vscode-docker
 ms-azuretools.vscode-containers
 ms-vscode-remote.remote-wsl
 ms-vscode-remote.remote-containers
 
-# --- git ---
-eamodio.gitlens
-
-# --- utilidades ---
-formulahendry.code-runner
-clemenspeters.format-json
-ms-ceintl.vscode-language-pack-pt-br
+[escrita]
+yzhang.markdown-all-in-one
+davidanson.vscode-markdownlint
+quarto.quarto

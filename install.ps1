@@ -34,6 +34,8 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\scripts\common.ps1"
 
+$conf = Get-Perfil
+
 if ($Simular) { Write-Aviso 'modo simulacao: nada sera escrito' }
 
 $raiz = $script:DotfilesRaiz
@@ -70,16 +72,30 @@ if (-not (Test-Path -LiteralPath $local)) {
     if ($Simular) {
         Write-Info "[simular] criaria $local"
     } else {
-        $conteudo = @"
-# Configuracao Git especifica desta maquina. Nao versionada.
-[core]
-	# No Windows o checkout converte para CRLF e o commit volta para LF.
-	autocrlf = true
-[credential]
-	helper = manager
-"@
-        Set-Content -LiteralPath $local -Value $conteudo -Encoding UTF8
+        $linhas = New-Object System.Collections.ArrayList
+        [void]$linhas.Add('# Configuracao Git especifica desta maquina. Nao versionada.')
+        [void]$linhas.Add('# Gerado por install.ps1 a partir do perfil.conf.')
+
+        # Identidade so entra se o perfil declarou. Sem isso o git pergunta no
+        # primeiro commit -- melhor do que assinar com o nome de outra pessoa.
+        if ($conf['GIT_NOME'] -or $conf['GIT_EMAIL']) {
+            [void]$linhas.Add('[user]')
+            if ($conf['GIT_NOME'])  { [void]$linhas.Add("`tname = $($conf['GIT_NOME'])") }
+            if ($conf['GIT_EMAIL']) { [void]$linhas.Add("`temail = $($conf['GIT_EMAIL'])") }
+        }
+
+        [void]$linhas.Add('[core]')
+        [void]$linhas.Add("`t# No Windows o checkout converte para CRLF e o commit volta para LF.")
+        [void]$linhas.Add("`tautocrlf = true")
+        [void]$linhas.Add('[credential]')
+        [void]$linhas.Add("`thelper = manager")
+
+        Set-Content -LiteralPath $local -Value ($linhas -join "`r`n") -Encoding UTF8
         Write-Ok "criado: $local"
+        if (-not $conf['GIT_NOME'] -and -not $conf['GIT_EMAIL']) {
+            Write-Aviso 'identidade do git nao definida -- preencha GIT_NOME e GIT_EMAIL no perfil.conf'
+            Write-Aviso 'ou rode: .\scripts\configurar.ps1'
+        }
     }
 } else {
     Write-Ok "ja existe: $local"
@@ -135,15 +151,30 @@ if ($Extensoes) {
     } elseif (-not (Test-Path -LiteralPath $lista)) {
         Write-Aviso "lista nao encontrada: $lista"
     } else {
+        # A lista e dividida em secoes "[grupo]": instala so os grupos que o
+        # perfil pediu em VSCODE_EXTENSOES.
+        $grupos = $conf['VSCODE_EXTENSOES'] -split '\s+' | Where-Object { $_ }
+        $instalarEste = $false
+
         foreach ($linha in (Get-Content -LiteralPath $lista)) {
             $ext = $linha.Trim()
             if ($ext -eq '' -or $ext.StartsWith('#')) { continue }
+
+            if ($ext -match '^\[(.+)\]$') {
+                $grupo = $Matches[1]
+                $instalarEste = ($grupos -contains $grupo)
+                if ($instalarEste) { Write-Info "grupo: $grupo" }
+                continue
+            }
+
+            if (-not $instalarEste) { continue }
+
             if ($Simular) {
                 Write-Info "[simular] code --install-extension $ext"
                 continue
             }
             Write-Info "extensao: $ext"
-            code --install-extension $ext --force 2>&1 | Out-Null
+            Invoke-Nativo -Comando 'code' -Silencioso -Argumentos @('--install-extension', $ext, '--force') | Out-Null
         }
         Write-Ok 'extensoes processadas'
     }

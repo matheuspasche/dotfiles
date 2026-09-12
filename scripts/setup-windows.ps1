@@ -35,6 +35,8 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\common.ps1"
 
+$conf = Get-Perfil
+
 # ---------------------------------------------------------------------------
 # Pre-requisitos
 # ---------------------------------------------------------------------------
@@ -77,21 +79,22 @@ function Install-ViaWinget {
 
     Write-Info "instalando $($Pacote.nome) ($($Pacote.pkg))"
     # --silent evita janelas de instalador travando o script sem supervisao.
-    winget install --id $Pacote.pkg --exact --silent `
-        --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+    $codigo = Invoke-Nativo -Comando 'winget' -Silencioso -Argumentos @(
+        'install', '--id', $Pacote.pkg, '--exact', '--silent',
+        '--accept-package-agreements', '--accept-source-agreements')
 
-    if ($LASTEXITCODE -eq 0) {
+    if ($codigo -eq 0) {
         Write-Ok "instalado: $($Pacote.nome)"
         return $true
     }
 
     # 0x8A15002B = "no applicable upgrade / ja instalado" -- nao e falha real.
-    if ($LASTEXITCODE -eq -1978335189) {
+    if ($codigo -eq -1978335189) {
         Write-Ok "ja atualizado: $($Pacote.nome)"
         return $true
     }
 
-    Write-Aviso "winget falhou para $($Pacote.nome) (codigo $LASTEXITCODE)"
+    Write-Aviso "winget falhou para $($Pacote.nome) (codigo $codigo)"
     return $false
 }
 
@@ -150,15 +153,16 @@ function Initialize-Wsl {
         Write-Ok 'Ubuntu ja instalado no WSL'
     } else {
         Write-Info 'instalando Ubuntu no WSL (pode pedir reinicializacao)'
-        wsl --install --distribution Ubuntu --no-launch 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Aviso "wsl --install retornou $LASTEXITCODE -- pode exigir reboot antes de repetir"
+        $codigo = Invoke-Nativo -Comando 'wsl' -Silencioso -Argumentos @(
+            '--install', '--distribution', 'Ubuntu', '--no-launch')
+        if ($codigo -ne 0) {
+            Write-Aviso "wsl --install retornou $codigo -- pode exigir reboot antes de repetir"
             return
         }
     }
 
     # Garante WSL2 como padrao (WSL1 nao roda Docker nem systemd).
-    wsl --set-default-version 2 2>&1 | Out-Null
+    Invoke-Nativo -Comando 'wsl' -Silencioso -Argumentos @('--set-default-version', '2') | Out-Null
     Write-Ok 'WSL2 configurado. Abra "Ubuntu" no menu iniciar para criar o usuario.'
 }
 
@@ -169,10 +173,52 @@ function Initialize-Wsl {
 Write-Info "raiz do kit: $script:DotfilesRaiz"
 if ($Simular) { Write-Aviso 'modo simulacao: nada sera instalado' }
 
-# Sem -Grupo, instala todos os grupos exceto "opcional".
-$pacotes = Get-PacotesPara -Gerenciador winget -Grupo $Grupo
-if (-not $Grupo) {
-    $pacotes = $pacotes | Where-Object { $_.grupo -ne 'opcional' }
+# O que instalar vem de STACKS no perfil.conf -- NUNCA "tudo". Instalar R,
+# Python e Docker numa maquina que so precisa de navegador nao serve a
+# ninguem. -Grupo sobrescreve o perfil para um uso pontual.
+$pacotes = @()
+
+if ($Grupo) {
+    $pacotes = Get-PacotesPara -Gerenciador winget -Grupo $Grupo
+    Write-Info "grupo: $Grupo"
+} else {
+    if (-not $conf['_CARREGADO']) {
+        Write-Host ''
+        Write-Aviso 'nenhum perfil.conf encontrado.'
+        Write-Host  "   Sem ele, so o stack 'base' sera instalado."
+        Write-Host  '   Para escolher o que instalar:  .\scripts\configurar.ps1'
+        Write-Host  ''
+        if (-not $Simular) {
+            $resposta = Read-Host '   Continuar so com o basico? [S/n]'
+            if ($resposta -match '^[nN]') {
+                Write-Info 'rode .\scripts\configurar.ps1 e tente de novo'
+                exit 0
+            }
+        }
+    }
+
+    $stacks = $conf['STACKS'] -split '\s+' | Where-Object { $_ }
+    Write-Info "grupos: $($stacks -join ' ')"
+    foreach ($g in $stacks) {
+        $pacotes += Get-PacotesPara -Gerenciador winget -Grupo $g
+    }
+
+    # Navegador: entra so o escolhido, nao os tres do manifesto.
+    if ($conf['NAVEGADOR'] -and $conf['NAVEGADOR'] -ne 'nenhum') {
+        $nav = (Get-PacotesPara -Gerenciador winget -Grupo 'navegador') |
+               Where-Object { $_.id -eq $conf['NAVEGADOR'] }
+        if ($nav) {
+            $pacotes += $nav
+            Write-Info "navegador: $($conf['NAVEGADOR'])"
+        } else {
+            Write-Aviso "navegador '$($conf['NAVEGADOR'])' nao encontrado no manifesto"
+        }
+    }
+}
+
+if ($pacotes.Count -eq 0) {
+    Write-Aviso 'nada a instalar'
+    exit 0
 }
 
 Write-Info "$($pacotes.Count) pacotes a processar"
@@ -194,8 +240,8 @@ if ($falhas.Count -gt 0) {
                 if ($Simular) {
                     Write-Info "[simular] scoop install $($alt['scoop'])"
                 } else {
-                    scoop install $alt['scoop'] 2>&1 | Out-Null
-                    if ($LASTEXITCODE -eq 0) { Write-Ok "instalado via scoop: $($p.nome)" }
+                    $codigo = Invoke-Nativo -Comando 'scoop' -Silencioso -Argumentos @('install', $alt['scoop'])
+                    if ($codigo -eq 0) { Write-Ok "instalado via scoop: $($p.nome)" }
                     else { Write-Erro "falhou nos dois gerenciadores: $($p.nome)" }
                 }
             } else {
@@ -205,7 +251,21 @@ if ($falhas.Count -gt 0) {
     }
 }
 
-if (-not $PularWsl) { Initialize-Wsl }
+# O WSL e uma mudanca grande de sistema (recurso do Windows, reboot, 1 GB de
+# disco). So entra quando faz sentido para o que o usuario pediu.
+$querWsl = $false
+if ($Grupo) {
+    $querWsl = ($Grupo -eq 'container')
+} else {
+    $stacksWsl = $conf['STACKS'] -split '\s+' | Where-Object { $_ }
+    $querWsl = ($stacksWsl -contains 'container') -or ($stacksWsl -contains 'python')
+}
+
+if (-not $PularWsl -and $querWsl) {
+    Initialize-Wsl
+} elseif (-not $PularWsl) {
+    Write-Ok 'WSL nao solicitado pelo perfil -- pulando'
+}
 
 Write-Host ''
 Write-Info 'setup concluido. Proximos passos:'

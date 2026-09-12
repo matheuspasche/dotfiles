@@ -167,3 +167,139 @@ function New-Ligacao {
         Write-Aviso "symlink indisponivel, copiado: $Destino"
     }
 }
+
+# --------------------------------------------------------------- perfil -----
+# Le perfil.conf (formato CHAVE="valor") e devolve uma hashtable.
+#
+# O arquivo e deliberadamente simples para nao exigir parser: o bash faz
+# source e aqui basta uma expressao regular. Linha fora do formato e recusada
+# em vez de ignorada -- um perfil editado a mao com um comando dentro nao deve
+# passar despercebido.
+function Get-Perfil {
+    param([string]$Caminho = (Join-Path $script:DotfilesRaiz 'perfil.conf'))
+
+    # Padroes conservadores: o kit funciona recem-clonado, sem perfil.
+    $perfil = @{
+        GIT_NOME = ''; GIT_EMAIL = ''; GIT_ASSINAR = 'nao'
+        STACKS = 'base'
+        LIBS_R = ''; LIBS_PY = ''
+        LIBS_EM_SEGUNDO_PLANO = 'sim'
+        NAVEGADOR = 'nenhum'
+        VSCODE_EXTENSOES = 'base'
+        FEDORA_RPMFUSION = 'sim'; FEDORA_CODECS = 'sim'; FEDORA_GPU = 'sim'
+        FEDORA_FIRMWARE = 'sim'; FEDORA_FONTES_MS = 'nao'; FEDORA_DNF_RAPIDO = 'sim'
+        COFRE_DESTINO = ''; SNAPSHOT_DESTINO = ''
+        _CARREGADO = $false
+    }
+
+    if (-not (Test-Path -LiteralPath $Caminho)) { return $perfil }
+
+    $numero = 0
+    foreach ($linha in (Get-Content -LiteralPath $Caminho)) {
+        $numero++
+        if ($linha -match '^\s*(#.*)?$') { continue }
+        if ($linha -match '^([A-Z_][A-Z0-9_]*)="([^"$`]*)"\s*(#.*)?$') {
+            $perfil[$Matches[1]] = $Matches[2]
+        } else {
+            throw "perfil.conf linha ${numero}: fora do formato CHAVE=`"valor`". Rode scripts\configurar.ps1"
+        }
+    }
+    $perfil['_CARREGADO'] = $true
+    return $perfil
+}
+
+# Verdadeiro quando o stack esta ligado no perfil.
+function Test-Stack {
+    param(
+        [Parameter(Mandatory)][hashtable]$Perfil,
+        [Parameter(Mandatory)][string]$Nome
+    )
+    $lista = $Perfil['STACKS'] -split '\s+' | Where-Object { $_ }
+    return ($lista -contains $Nome)
+}
+
+# ---------------------------------------------------- bibliotecas -----------
+# Conjuntos de bibliotecas de uma linguagem (r | python), lidos do
+# bibliotecas.yaml -- mesmo formato e mesmo parser do pacotes.yaml.
+function Get-Conjuntos {
+    param([Parameter(Mandatory)][ValidateSet('r', 'python')][string]$Linguagem)
+
+    $arquivo = Join-Path $script:DotfilesRaiz 'bibliotecas.yaml'
+    $saida = New-Object System.Collections.ArrayList
+    foreach ($c in (Get-Manifesto -Caminho $arquivo)) {
+        if ($c['linguagem'] -ne $Linguagem) { continue }
+        [void]$saida.Add([pscustomobject]@{
+            id      = $c['id']
+            nome    = $c['nome']
+            minutos = $c['minutos']
+            requer  = $(if ($c.ContainsKey('requer')) { $c['requer'] } else { '' })
+            pacotes = ($c['pacotes'] -split '\s+' | Where-Object { $_ })
+        })
+    }
+    return $saida.ToArray()
+}
+
+# Expande a lista de ids escolhida pelo usuario, puxando as dependencias
+# declaradas em "requer" e preservando a ordem de instalacao.
+function Resolve-Conjuntos {
+    param(
+        [Parameter(Mandatory)][ValidateSet('r', 'python')][string]$Linguagem,
+        [string]$Escolhidos
+    )
+
+    $todos = Get-Conjuntos -Linguagem $Linguagem
+    $pedidos = $Escolhidos -split '\s+' | Where-Object { $_ }
+    $final = New-Object System.Collections.ArrayList
+
+    foreach ($id in $pedidos) {
+        $c = $todos | Where-Object { $_.id -eq $id }
+        if (-not $c) {
+            Write-Aviso "conjunto desconhecido, ignorado: $id"
+            continue
+        }
+        # A dependencia entra antes, e so uma vez.
+        if ($c.requer) {
+            $dep = $todos | Where-Object { $_.id -eq $c.requer }
+            if ($dep -and -not ($final | Where-Object { $_.id -eq $dep.id })) {
+                [void]$final.Add($dep)
+            }
+        }
+        if (-not ($final | Where-Object { $_.id -eq $c.id })) { [void]$final.Add($c) }
+    }
+    return $final.ToArray()
+}
+
+# ---------------------------------------------------------------- nativo ----
+# Executa um programa externo sem que a saida de erro dele derrube o script.
+#
+# Motivo: no Windows PowerShell 5.1, redirecionar stderr de executavel nativo
+# (2>&1) embrulha cada linha num ErrorRecord. Com $ErrorActionPreference =
+# 'Stop', isso vira erro terminal mesmo quando o programa devolveu 0 -- e
+# winget, uv e git escrevem progresso em stderr o tempo todo.
+#
+# Devolve o codigo de saida. Nunca lanca excecao.
+function Invoke-Nativo {
+    param(
+        [Parameter(Mandatory)][string]$Comando,
+        [string[]]$Argumentos = @(),
+        [switch]$Silencioso
+    )
+
+    $anterior = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if ($Silencioso) {
+            & $Comando @Argumentos 2>&1 | Out-Null
+        } else {
+            # ForEach-Object converte o ErrorRecord em texto antes de exibir.
+            & $Comando @Argumentos 2>&1 | ForEach-Object { Write-Host "$_" }
+        }
+        if ($null -eq $LASTEXITCODE) { return 0 }
+        return $LASTEXITCODE
+    } catch {
+        Write-Aviso "falha ao executar ${Comando}: $($_.Exception.Message)"
+        return 1
+    } finally {
+        $ErrorActionPreference = $anterior
+    }
+}

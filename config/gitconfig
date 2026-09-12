@@ -8,10 +8,10 @@
 # incluido no fim do arquivo e NAO versionado.
 # ============================================================================
 
-[user]
-	name = Matheus Pasche
-	# E-mail noreply do GitHub: mantem o endereco real fora dos commits publicos.
-	email = 46602805+matheuspasche@users.noreply.github.com
+# Nome e e-mail NAO ficam aqui. Sao seus, nao do repositorio, e um kit que
+# outra pessoa clona nao deve sair assinando commit com a identidade alheia.
+# Eles vao para ~/.gitconfig.local, gerado pelo install a partir do
+# perfil.conf (GIT_NOME e GIT_EMAIL) -- veja o include no fim do arquivo.
 
 [init]
 	defaultBranch = main

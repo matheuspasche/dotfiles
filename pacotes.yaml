@@ -85,7 +85,7 @@ pacotes:
 
   - id: vscode
     nome: Visual Studio Code
-    grupo: base
+    grupo: editor
     dnf: code
     apt: code
     brew: visual-studio-code
@@ -95,7 +95,7 @@ pacotes:
 
   - id: node
     nome: Node.js LTS
-    grupo: base
+    grupo: editor
     dnf: nodejs
     apt: nodejs
     brew: node
@@ -227,7 +227,123 @@ pacotes:
     winget: Docker.DockerDesktop
     scoop: "-"
 
+  # ----------------------------------------------------------- navegador ---
+  # O usuario escolhe um em NAVEGADOR no perfil.conf; o setup instala so esse.
+  # O Fedora KDE ja vem com Firefox, entao "firefox" costuma ser no-op la.
+
+  - id: firefox
+    nome: Firefox
+    grupo: navegador
+    dnf: firefox
+    apt: firefox
+    brew: firefox
+    cask: "sim"
+    winget: Mozilla.Firefox
+    scoop: "-"
+
+  - id: chrome
+    nome: Google Chrome
+    grupo: navegador
+    # No Fedora exige o repositorio do Google, habilitado pelo setup-linux.sh
+    # quando este navegador e o escolhido.
+    dnf: google-chrome-stable
+    apt: google-chrome-stable
+    brew: google-chrome
+    cask: "sim"
+    winget: Google.Chrome
+    scoop: "-"
+
+  - id: brave
+    nome: Brave
+    grupo: navegador
+    dnf: brave-browser
+    apt: brave-browser
+    brew: brave-browser
+    cask: "sim"
+    winget: Brave.Brave
+    scoop: "-"
+
+  # ---------------------------------------------------------- escritorio ---
+  # Editor de documentos. No Linux nao existe Microsoft Office nativo; o
+  # LibreOffice e o padrao das distribuicoes e o OnlyOffice e a alternativa
+  # com melhor fidelidade a arquivos .docx e .xlsx do Office.
+
+  - id: libreoffice
+    nome: LibreOffice
+    grupo: escritorio
+    dnf: libreoffice
+    apt: libreoffice
+    brew: libreoffice
+    cask: "sim"
+    winget: TheDocumentFoundation.LibreOffice
+    scoop: "-"
+
+  - id: onlyoffice
+    nome: ONLYOFFICE Desktop Editors
+    grupo: escritorio
+    # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
+    dnf: "-"
+    apt: "-"
+    brew: onlyoffice
+    cask: "sim"
+    winget: ONLYOFFICE.DesktopEditors
+    scoop: "-"
+
+  - id: microsoft365
+    nome: Microsoft 365 (exige assinatura)
+    grupo: escritorio
+    # Sem equivalente nativo no Linux -- la o caminho e a versao web ou o
+    # LibreOffice. O setup avisa em vez de falhar.
+    dnf: "-"
+    apt: "-"
+    brew: microsoft-office
+    cask: "sim"
+    winget: Microsoft.Office
+    scoop: "-"
+
+  # -------------------------------------------------------- produtividade --
+
+  - id: powertoys
+    nome: PowerToys (FancyZones, PowerRename, Run)
+    grupo: produtividade
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.PowerToys
+    scoop: "-"
+
+  - id: everything
+    nome: Everything (busca instantanea de arquivos)
+    grupo: produtividade
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: voidtools.Everything
+    scoop: "-"
+
+  - id: kde-utils
+    nome: Utilitarios do KDE (Kate, Spectacle, Filelight)
+    grupo: produtividade
+    # Equivalentes de PowerToys no KDE: o proprio KWin ja faz tiling, e o
+    # KRunner cobre o PowerToys Run. Estes completam o basico.
+    dnf: kate spectacle filelight kcalc
+    apt: kate kde-spectacle filelight kcalc
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
+  - id: flameshot
+    nome: Flameshot (captura de tela com anotacao)
+    grupo: produtividade
+    dnf: flameshot
+    apt: flameshot
+    brew: flameshot
+    cask: "sim"
+    winget: Flameshot.Flameshot
+    scoop: "-"
+
   # -------------------------------------------------------------- opcional --
+
   - id: obsidian
     nome: Obsidian
     grupo: opcional
@@ -238,12 +354,21 @@ pacotes:
     winget: Obsidian.Obsidian
     scoop: "-"
 
-  - id: firefox
-    nome: Firefox
+  - id: vlc
+    nome: VLC
     grupo: opcional
-    dnf: firefox
-    apt: firefox
-    brew: firefox
+    dnf: vlc
+    apt: vlc
+    brew: vlc
     cask: "sim"
-    winget: Mozilla.Firefox
+    winget: VideoLAN.VLC
+    scoop: "-"
+
+  - id: syncthing
+    nome: Syncthing (sincronizacao entre maquinas, sem nuvem)
+    grupo: opcional
+    dnf: syncthing
+    apt: syncthing
+    brew: syncthing
+    winget: Syncthing.Syncthing
     scoop: "-"

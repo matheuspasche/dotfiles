@@ -1,0 +1,128 @@
+# ============================================================================
+# bibliotecas.yaml -- conjuntos de bibliotecas de R e Python
+#
+# Mesmo formato restrito do pacotes.yaml, lido pelos mesmos parsers
+# (scripts/common.sh e scripts/common.ps1). Cada item e um CONJUNTO que o
+# usuario liga ou desliga no perfil.conf -- nao um pacote solto.
+#
+# Motivo de serem conjuntos: quem so escreve Python nao deve esperar o
+# tidyverse compilar. A instalacao de bibliotecas e a parte demorada do setup
+# e precisa ser escolhida, nao imposta.
+#
+# Campos:
+#   id          identificador usado em LIBS_R / LIBS_PY no perfil.conf
+#   linguagem   r | python
+#   nome        descricao legivel
+#   pacotes     lista separada por espaco, na sintaxe do gerenciador da
+#               linguagem (install.packages para R, uv/pip para Python)
+#   minutos     estimativa grosseira de instalacao, para avisar o usuario
+#   requer      outro conjunto que precisa vir antes (opcional)
+# ============================================================================
+
+conjuntos:
+
+  # ====================================================================== R ==
+
+  - id: r-core
+    linguagem: r
+    nome: Essencial do R
+    minutos: 12
+    pacotes: tidyverse data.table duckdb arrow janitor here fs glue
+
+  - id: r-modelagem
+    linguagem: r
+    nome: Modelagem e machine learning
+    minutos: 18
+    requer: r-core
+    pacotes: tidymodels ranger xgboost glmnet vip DALEX
+
+  - id: r-rcpp
+    linguagem: r
+    nome: Rcpp e compilacao
+    minutos: 8
+    # pkgbuild verifica o toolchain; RcppArmadillo e o teste real de que o
+    # compilador funciona, porque compila C++ com BLAS/LAPACK de verdade.
+    pacotes: Rcpp RcppArmadillo cpp11 pkgbuild bench
+
+  - id: r-paralelo
+    linguagem: r
+    nome: Paralelizacao
+    minutos: 6
+    pacotes: future future.apply furrr parallelly doFuture foreach progressr
+
+  - id: r-shiny
+    linguagem: r
+    nome: Shiny e aplicacoes web
+    minutos: 10
+    pacotes: shiny bslib DT plotly shinyWidgets reactable
+
+  - id: r-relatorio
+    linguagem: r
+    nome: Relatorios e documentos
+    minutos: 10
+    pacotes: quarto rmarkdown knitr gt gtsummary officer
+
+  - id: r-banco
+    linguagem: r
+    nome: Bancos de dados
+    minutos: 8
+    pacotes: DBI RPostgres RSQLite odbc dbplyr pool
+
+  - id: r-dev
+    linguagem: r
+    nome: Desenvolvimento de pacotes
+    minutos: 10
+    pacotes: devtools usethis testthat roxygen2 pkgdown covr lintr
+
+  # ================================================================= PYTHON ==
+
+  - id: py-core
+    linguagem: python
+    nome: Essencial do Python
+    minutos: 3
+    pacotes: numpy pandas polars pyarrow duckdb requests python-dotenv
+
+  - id: py-viz
+    linguagem: python
+    nome: Visualizacao
+    minutos: 3
+    pacotes: matplotlib seaborn plotly altair
+
+  - id: py-ml
+    linguagem: python
+    nome: Machine learning
+    minutos: 6
+    requer: py-core
+    pacotes: scikit-learn scipy statsmodels xgboost lightgbm shap
+
+  - id: py-spark
+    linguagem: python
+    nome: PySpark
+    minutos: 5
+    # findspark resolve o caso em que o SPARK_HOME existe mas nao esta no
+    # sys.path do interpretador -- comum quando o Spark vem de tarball.
+    pacotes: pyspark findspark delta-spark
+
+  - id: py-notebook
+    linguagem: python
+    nome: Jupyter e notebooks
+    minutos: 4
+    pacotes: jupyterlab ipykernel notebook nbformat ipywidgets
+
+  - id: py-banco
+    linguagem: python
+    nome: Bancos de dados
+    minutos: 3
+    pacotes: sqlalchemy psycopg2-binary pyodbc
+
+  - id: py-dev
+    linguagem: python
+    nome: Ferramentas de desenvolvimento
+    minutos: 3
+    pacotes: ruff mypy pytest pytest-cov ipython rich
+
+  - id: py-web
+    linguagem: python
+    nome: APIs e scraping
+    minutos: 3
+    pacotes: fastapi uvicorn httpx beautifulsoup4 lxml

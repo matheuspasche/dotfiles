@@ -14,6 +14,7 @@
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/scripts/common.sh"
+carregar_perfil
 
 SIMULAR=0
 EXTENSOES=0
@@ -63,12 +64,24 @@ if [ ! -f "$HOME/.gitconfig.local" ]; then
       gitbash) helper="manager" ;;
       *)       helper="cache --timeout=86400" ;;
     esac
-    cat > "$HOME/.gitconfig.local" <<EOF
-# Configuracao Git especifica desta maquina. Nao versionada.
-[credential]
-	helper = $helper
-EOF
+    {
+      echo "# Configuracao Git especifica desta maquina. Nao versionada."
+      echo "# Gerado por install.sh a partir do perfil.conf."
+      # Identidade so entra se o perfil declarou. Sem isso, o git pergunta no
+      # primeiro commit -- que e melhor do que assinar com o nome errado.
+      if [ -n "${GIT_NOME:-}" ] || [ -n "${GIT_EMAIL:-}" ]; then
+        echo "[user]"
+        [ -n "${GIT_NOME:-}" ]  && echo "	name = $GIT_NOME"
+        [ -n "${GIT_EMAIL:-}" ] && echo "	email = $GIT_EMAIL"
+      fi
+      echo "[credential]"
+      echo "	helper = $helper"
+    } > "$HOME/.gitconfig.local"
     ok "criado: $HOME/.gitconfig.local"
+    if [ -z "${GIT_NOME:-}" ] && [ -z "${GIT_EMAIL:-}" ]; then
+      aviso "identidade do git nao definida -- preencha GIT_NOME e GIT_EMAIL no perfil.conf"
+      aviso "ou rode: ./scripts/configurar.sh"
+    fi
   fi
 else
   ok "ja existe: $HOME/.gitconfig.local"
@@ -132,10 +145,27 @@ if [ "$EXTENSOES" = "1" ]; then
   elif [ ! -f "$lista" ]; then
     aviso "lista nao encontrada: $lista"
   else
+    # A lista e dividida em secoes "[grupo]": instala so os grupos que o
+    # perfil pediu em VSCODE_EXTENSOES. Quem nao escreve R nao espera a
+    # extensao de R baixar.
+    grupo_atual=""
+    instalar_este=0
     while IFS= read -r linha; do
       ext="$(printf '%s' "$linha" | tr -d '[:space:]')"
       [ -z "$ext" ] && continue
-      case "$ext" in \#*) continue ;; esac
+      case "$ext" in
+        '#'*) continue ;;
+        '['*']')
+          grupo_atual="${ext#[}"
+          grupo_atual="${grupo_atual%]}"
+          case " ${VSCODE_EXTENSOES:-} " in
+            *" $grupo_atual "*) instalar_este=1; info "grupo: $grupo_atual" ;;
+            *)                  instalar_este=0 ;;
+          esac
+          continue
+          ;;
+      esac
+      [ "$instalar_este" = "1" ] || continue
       if [ "$SIMULAR" = "1" ]; then
         info "[simular] code --install-extension $ext"
       else

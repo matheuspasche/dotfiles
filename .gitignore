@@ -25,6 +25,15 @@ id_ed25519*
 *credentials*
 *.credentials.json
 
+# --- perfil do usuario ---
+# Identidade e escolhas sao de quem clonou, nao do repositorio. O modelo
+# versionado e o perfil.exemplo.conf.
+perfil.conf
+perfil.conf.anterior
+
+# --- logs de instalacao de bibliotecas ---
+logs/
+
 # --- snapshots ---
 # Gerados por maquina; nao sao configuracao. Fique com eles localmente ou
 # copie para o Drive, mas nao poluem o historico do repositorio.

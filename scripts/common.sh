@@ -19,6 +19,10 @@ DOTFILES_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export DOTFILES_RAIZ
 MANIFESTO="${DOTFILES_RAIZ}/pacotes.yaml"
 export MANIFESTO
+BIBLIOTECAS="${DOTFILES_RAIZ}/bibliotecas.yaml"
+export BIBLIOTECAS
+PERFIL="${DOTFILES_RAIZ}/perfil.conf"
+export PERFIL
 
 # ------------------------------------------------------------------- cores --
 # Só emite cor quando a saida e um terminal; em pipe/CI fica texto puro.
@@ -36,17 +40,35 @@ erro()  { printf '%serro %s %s\n' "$_C_VERM" "$_C_OFF" "$*" >&2; }
 morre() { erro "$*"; exit 1; }
 
 # --------------------------------------------------------------- ambiente ---
+# eh_container -- verdadeiro dentro de container (Docker, Podman, toolbox).
+#
+# Importa porque o Docker Desktop no Windows roda os containers sobre um
+# kernel WSL2: sem este teste, /proc/version faz o codigo concluir "WSL" e
+# tentar falar com o cmd.exe do Windows, que nao existe la dentro.
+eh_container() {
+  [ -f /.dockerenv ] && return 0
+  [ -f /run/.containerenv ] && return 0
+  grep -qE '/(docker|lxc|containerd)/' /proc/1/cgroup 2>/dev/null && return 0
+  [ "${container:-}" = "podman" ] && return 0
+  return 1
+}
+
 # detectar_os imprime um entre: linux, macos, wsl, gitbash, desconhecido
 #
-# Ordem importa: WSL tambem responde "Linux" em uname, entao o teste de WSL
-# vem antes. Git Bash aparece como MINGW64_NT-*.
+# Ordem importa: container antes de WSL (o kernel pode ser o mesmo) e WSL
+# antes de linux (WSL tambem responde "Linux" em uname). Git Bash aparece
+# como MINGW64_NT-*.
 detectar_os() {
   local sistema
   sistema="$(uname -s)"
   case "$sistema" in
     Linux*)
+      # Dentro de container o sabor do kernel do host e irrelevante: o que
+      # vale sao os caminhos Linux.
+      if eh_container; then
+        echo linux
       # /proc/version cita "microsoft" dentro do WSL (WSL1 e WSL2).
-      if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+      elif grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
         echo wsl
       else
         echo linux
@@ -109,8 +131,8 @@ home_windows() {
 # manifesto_ids [grupo]
 #   Lista os ids de pacote do manifesto. Com argumento, filtra pelo grupo.
 manifesto_ids() {
-  local filtro="${1:-}"
-  [ -f "$MANIFESTO" ] || morre "manifesto nao encontrado: $MANIFESTO"
+  local filtro="${1:-}" arquivo="${2:-$MANIFESTO}"
+  [ -f "$arquivo" ] || morre "manifesto nao encontrado: $arquivo"
   awk -v filtro="$filtro" '
     # Início de um novo item da lista.
     /^[[:space:]]*-[[:space:]]*id:[[:space:]]*/ {
@@ -124,15 +146,15 @@ manifesto_ids() {
       next
     }
     END { if (id != "" && (filtro == "" || grupo == filtro)) print id }
-  ' "$MANIFESTO"
+  ' "$arquivo"
 }
 
 # manifesto_valor <id> <chave>
 #   Devolve o valor de uma chave do item. String vazia quando a chave nao
 #   existe ou quando vale "-" (indisponivel naquele gerenciador).
 manifesto_valor() {
-  local alvo="$1" chave="$2"
-  [ -f "$MANIFESTO" ] || morre "manifesto nao encontrado: $MANIFESTO"
+  local alvo="$1" chave="$2" arquivo="${3:-$MANIFESTO}"
+  [ -f "$arquivo" ] || morre "manifesto nao encontrado: $arquivo"
   awk -v alvo="$alvo" -v chave="$chave" '
     /^[[:space:]]*-[[:space:]]*id:[[:space:]]*/ {
       atual = $0; sub(/^[^:]*:[[:space:]]*/, "", atual); gsub(/"/, "", atual)
@@ -150,7 +172,7 @@ manifesto_valor() {
         exit
       }
     }
-  ' "$MANIFESTO"
+  ' "$arquivo"
 }
 
 # pacotes_para <gerenciador> [grupo]
@@ -166,6 +188,72 @@ pacotes_para() {
   # Sem este return, o status seria o do ultimo teste do laco -- que e falso
   # sempre que o ultimo pacote lido nao existe para este gerenciador.
   return 0
+}
+
+# ------------------------------------------------------------ bibliotecas ---
+# conjuntos_de <linguagem>
+#   Lista os ids de conjunto de bibliotecas daquela linguagem (r | python).
+conjuntos_de() {
+  local linguagem="$1" id
+  while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    if [ "$(manifesto_valor "$id" linguagem "$BIBLIOTECAS")" = "$linguagem" ]; then
+      printf '%s\n' "$id"
+    fi
+  done < <(manifesto_ids "" "$BIBLIOTECAS")
+  return 0
+}
+
+# conjunto_valor <id> <chave> -- le uma chave de um conjunto de bibliotecas.
+conjunto_valor() {
+  manifesto_valor "$1" "$2" "$BIBLIOTECAS"
+}
+
+# ----------------------------------------------------------------- perfil ---
+# carregar_perfil [caminho]
+#   Le perfil.conf definindo as variaveis nele. Quando o arquivo nao existe,
+#   aplica padroes conservadores: instala o basico e nao mexe em biblioteca
+#   nenhuma. Assim o kit funciona recem-clonado, sem configuracao.
+carregar_perfil() {
+  local arquivo="${1:-$PERFIL}"
+
+  # Padroes. Definidos antes do source para que o arquivo do usuario mande.
+  GIT_NOME="${GIT_NOME:-}"
+  GIT_EMAIL="${GIT_EMAIL:-}"
+  GIT_ASSINAR="${GIT_ASSINAR:-nao}"
+  STACKS="${STACKS:-base}"
+  LIBS_R="${LIBS_R:-}"
+  LIBS_PY="${LIBS_PY:-}"
+  LIBS_EM_SEGUNDO_PLANO="${LIBS_EM_SEGUNDO_PLANO:-sim}"
+  NAVEGADOR="${NAVEGADOR:-nenhum}"
+  VSCODE_EXTENSOES="${VSCODE_EXTENSOES:-base}"
+  FEDORA_RPMFUSION="${FEDORA_RPMFUSION:-sim}"
+  FEDORA_CODECS="${FEDORA_CODECS:-sim}"
+  FEDORA_GPU="${FEDORA_GPU:-sim}"
+  FEDORA_FIRMWARE="${FEDORA_FIRMWARE:-sim}"
+  FEDORA_FONTES_MS="${FEDORA_FONTES_MS:-nao}"
+  FEDORA_DNF_RAPIDO="${FEDORA_DNF_RAPIDO:-sim}"
+  COFRE_DESTINO="${COFRE_DESTINO:-}"
+  SNAPSHOT_DESTINO="${SNAPSHOT_DESTINO:-}"
+
+  if [ -f "$arquivo" ]; then
+    # O arquivo e so CHAVE="valor". Uma verificacao rapida evita que um
+    # perfil editado a mao com um comando dentro seja executado em silencio.
+    if grep -qvE '^[[:space:]]*(#.*)?$|^[A-Z_][A-Z0-9_]*="[^"$`]*"[[:space:]]*(#.*)?$' "$arquivo"; then
+      morre "perfil.conf tem linha fora do formato CHAVE=\"valor\". Corrija ou rode scripts/configurar.sh"
+    fi
+    # shellcheck disable=SC1090
+    . "$arquivo"
+    PERFIL_CARREGADO=1
+  else
+    PERFIL_CARREGADO=0
+  fi
+  return 0
+}
+
+# tem_stack <nome> -- verdadeiro quando o stack esta ligado no perfil.
+tem_stack() {
+  case " ${STACKS:-} " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
 
 # eh_cask <id> -- verdadeiro quando o pacote deve ir por "brew install --cask"

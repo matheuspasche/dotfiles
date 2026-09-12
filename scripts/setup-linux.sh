@@ -6,14 +6,18 @@
 # a distribuicao. Tambem serve dentro do WSL.
 #
 # Uso:
-#   ./scripts/setup-linux.sh              instala tudo menos o grupo opcional
-#   ./scripts/setup-linux.sh --grupo r    so o grupo r
+#   ./scripts/setup-linux.sh              instala o que o perfil.conf pedir
+#   ./scripts/setup-linux.sh --grupo r    so o grupo r, ignorando o perfil
 #   ./scripts/setup-linux.sh --simular    mostra o que faria
+#
+# O que sera instalado vem de STACKS no perfil.conf. Sem perfil, so o basico.
+# Para escolher: ./scripts/configurar.sh
 # ============================================================================
 
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+carregar_perfil
 
 SIMULAR=0
 GRUPO=""
@@ -37,6 +41,23 @@ GER="$(detectar_gerenciador)"
 [ -z "$GER" ] && morre "nem dnf nem apt encontrados"
 info "distribuicao usa: $GER"
 [ "$SIMULAR" = "1" ] && aviso "modo simulacao: nada sera instalado"
+
+# Sem perfil e sem --grupo, o script nao adivinha o que voce quer. O padrao
+# e o minimo (stack base), e ele avisa como escolher de verdade.
+if [ "$PERFIL_CARREGADO" = "0" ] && [ -z "$GRUPO" ]; then
+  echo
+  aviso "nenhum perfil.conf encontrado."
+  echo "   Sem ele, so o stack 'base' sera instalado (git, editor, utilitarios)."
+  echo "   Para escolher o que instalar:  ./scripts/configurar.sh"
+  echo
+  if [ "$SIMULAR" != "1" ]; then
+    printf "   Continuar so com o basico? [S/n] "
+    read -r resposta
+    case "$resposta" in
+      [nN]*) info "rode ./scripts/configurar.sh e tente de novo"; exit 0 ;;
+    esac
+  fi
+fi
 
 # --------------------------------------------------------------- repositorios
 # Alguns pacotes so existem em repositorio de terceiro. Configurado antes de
@@ -118,20 +139,36 @@ configurar_repos() {
 # ----------------------------------------------------------------- instalar --
 instalar_pacotes() {
   local -a lista=()
-  while IFS= read -r pkg; do
-    [ -n "$pkg" ] && lista+=("$pkg")
-  done < <(pacotes_para "$GER" "$GRUPO")
+  local -a grupos=()
 
-  # Sem --grupo, remove o grupo opcional da lista.
-  if [ -z "$GRUPO" ]; then
-    local -a filtrada=()
-    local id pkg
-    while IFS= read -r id; do
-      [ "$(manifesto_valor "$id" grupo)" = "opcional" ] && continue
-      pkg="$(manifesto_valor "$id" "$GER")"
-      [ -n "$pkg" ] && filtrada+=("$pkg")
-    done < <(manifesto_ids)
-    lista=("${filtrada[@]}")
+  if [ -n "$GRUPO" ]; then
+    # --grupo manda: instala exatamente aquele grupo.
+    grupos=("$GRUPO")
+  else
+    # Sem --grupo, obedece o STACKS do perfil. NUNCA "tudo": instalar R,
+    # Python e Docker numa maquina que so precisa de navegador nao e util
+    # para ninguem.
+    read -r -a grupos <<< "$STACKS"
+  fi
+
+  info "grupos: ${grupos[*]}"
+
+  local g pkg
+  for g in "${grupos[@]}"; do
+    while IFS= read -r pkg; do
+      [ -n "$pkg" ] && lista+=("$pkg")
+    done < <(pacotes_para "$GER" "$g")
+  done
+
+  # Navegador: entra so o escolhido no perfil, nao os tres.
+  if [ "$NAVEGADOR" != "nenhum" ] && [ -n "$NAVEGADOR" ]; then
+    pkg="$(manifesto_valor "$NAVEGADOR" "$GER")"
+    if [ -n "$pkg" ]; then
+      lista+=("$pkg")
+      info "navegador: $NAVEGADOR ($pkg)"
+    else
+      aviso "navegador '$NAVEGADOR' nao disponivel para $GER -- veja docs/"
+    fi
   fi
 
   [ "${#lista[@]}" -eq 0 ] && { aviso "nada a instalar"; return 0; }
@@ -155,57 +192,82 @@ instalar_pacotes() {
 # ------------------------------------------------------ ferramentas avulsas --
 # Programas que nao vem em repositorio de distribuicao.
 instalar_avulsos() {
-  if [ "$SIMULAR" = "1" ]; then
-    info "[simular] instalaria uv, duckdb e DBeaver"
-    return 0
-  fi
-
-  # uv: instalador oficial da Astral, vai para ~/.local/bin
-  if ! command -v uv >/dev/null 2>&1; then
-    info "instalando uv"
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
+  # maquina que pediu apenas "base", nada disto e instalado.
+  local quer_python=0 quer_dados=0
+  if [ -n "$GRUPO" ]; then
+    [ "$GRUPO" = "python" ] && quer_python=1
+    [ "$GRUPO" = "dados" ]  && quer_dados=1
   else
-    ok "uv ja instalado"
+    tem_stack python && quer_python=1
+    tem_stack dados  && quer_dados=1
   fi
 
-  # DuckDB CLI: binario unico, sem dependencia.
-  if ! command -v duckdb >/dev/null 2>&1; then
-    info "instalando DuckDB CLI"
-    curl -fsSL https://install.duckdb.org | sh
-  else
-    ok "duckdb ja instalado"
-  fi
-
-  # DBeaver: Flatpak evita o conflito de versao de JDK com o Spark.
-  if command -v flatpak >/dev/null 2>&1; then
-    if ! flatpak list | grep -qi dbeaver; then
-      info "instalando DBeaver via Flatpak"
-      flatpak install -y flathub io.dbeaver.DBeaverCommunity || \
-        aviso "DBeaver falhou -- instale manualmente"
+  if [ "$quer_python" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o uv"
+    elif command -v uv >/dev/null 2>&1; then
+      ok "uv ja instalado"
     else
-      ok "DBeaver ja instalado"
+      # Instalador oficial da Astral; vai para ~/.local/bin, sem sudo.
+      info "instalando uv"
+      curl -LsSf https://astral.sh/uv/install.sh | sh
     fi
-  else
-    aviso "flatpak indisponivel -- instale o DBeaver manualmente"
   fi
+
+  if [ "$quer_dados" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o DuckDB CLI e o DBeaver"
+    else
+      # DuckDB CLI: binario unico, sem dependencia.
+      if command -v duckdb >/dev/null 2>&1; then
+        ok "duckdb ja instalado"
+      else
+        info "instalando DuckDB CLI"
+        curl -fsSL https://install.duckdb.org | sh
+      fi
+
+      # DBeaver via Flatpak: evita conflito de versao de JDK com o Spark.
+      if command -v flatpak >/dev/null 2>&1; then
+        if flatpak list 2>/dev/null | grep -qi dbeaver; then
+          ok "DBeaver ja instalado"
+        else
+          info "instalando DBeaver via Flatpak"
+          flatpak install -y flathub io.dbeaver.DBeaverCommunity ||             aviso "DBeaver falhou -- instale manualmente"
+        fi
+      else
+        aviso "flatpak indisponivel -- instale o DBeaver manualmente"
+      fi
+    fi
+  fi
+
+  [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&     ok "nenhuma ferramenta avulsa pedida"
+  return 0
 }
 
 # ------------------------------------------------------------- pos-instalacao
 pos_instalacao() {
+  # So mexe no Docker se ele foi pedido: habilitar servico e alterar grupo de
+  # usuario sao mudancas de sistema que ninguem quer de surpresa.
+  if [ -z "$GRUPO" ] && ! tem_stack container; then
+    return 0
+  fi
+  [ -n "$GRUPO" ] && [ "$GRUPO" != "container" ] && return 0
+
   if [ "$SIMULAR" = "1" ]; then
     info "[simular] habilitaria o docker e adicionaria o usuario ao grupo"
     return 0
   fi
 
   if command -v docker >/dev/null 2>&1 && [ "$OS" = "linux" ]; then
-    sudo systemctl enable --now docker 2>/dev/null || \
-      aviso "nao consegui habilitar o servico docker"
+    sudo systemctl enable --now docker 2>/dev/null ||       aviso "nao consegui habilitar o servico docker"
     # Sem isso, todo comando docker exige sudo.
     if ! groups | grep -q docker; then
       sudo usermod -aG docker "$USER"
       aviso "adicionado ao grupo docker -- faca logout/login para valer"
     fi
   fi
+  return 0
 }
 
 # -------------------------------------------------------------------- fluxo --
