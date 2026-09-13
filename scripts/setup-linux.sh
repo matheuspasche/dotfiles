@@ -9,6 +9,7 @@
 #   ./scripts/setup-linux.sh              instala o que o perfil.conf pedir
 #   ./scripts/setup-linux.sh --grupo r    so o grupo r, ignorando o perfil
 #   ./scripts/setup-linux.sh --simular    mostra o que faria
+#   ./scripts/setup-linux.sh --sim        nao pergunta nada
 #
 # O que sera instalado vem de STACKS no perfil.conf. Sem perfil, so o basico.
 # Para escolher: ./scripts/configurar.sh
@@ -21,10 +22,12 @@ carregar_perfil
 
 SIMULAR=0
 GRUPO=""
+SIM_A_TUDO=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --simular) SIMULAR=1; shift ;;
+    --sim)     SIM_A_TUDO=1; shift ;;
     --grupo)   GRUPO="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) morre "argumento desconhecido: $1" ;;
@@ -50,7 +53,7 @@ if [ "$PERFIL_CARREGADO" = "0" ] && [ -z "$GRUPO" ]; then
   echo "   Sem ele, so o stack 'base' sera instalado (git, editor, utilitarios)."
   echo "   Para escolher o que instalar:  ./scripts/configurar.sh"
   echo
-  if [ "$SIMULAR" != "1" ]; then
+  if [ "$SIMULAR" != "1" ] && [ "$SIM_A_TUDO" != "1" ]; then
     printf "   Continuar so com o basico? [S/n] "
     read -r resposta
     case "$resposta" in
@@ -628,6 +631,33 @@ instalar_whatsapp() {
   return 0
 }
 
+# avisar_jogos -- diz o que o Linux NAO vai rodar, antes de o usuario descobrir
+#   sozinho no meio de uma partida.
+#
+#   Nao e pessimismo: a maioria esmagadora do catalogo roda por Proton, e em
+#   GPU AMD costuma rodar bem. O que trava e uma coisa so -- anticheat que
+#   exige modulo de kernel, e cujo fabricante escolheu nao permitir Linux. Nao
+#   ha ajuste, driver ou Proton que resolva: e decisao do editor do jogo.
+avisar_jogos() {
+  echo
+  aviso "jogos com anticheat de kernel NAO rodam no Linux, por decisao do editor:"
+  echo "    Fortnite, Valorant, League of Legends, Roblox, GTA V e VI,"
+  echo "    EA SPORTS FC, Apex Legends, Destiny 2, Rainbow Six Siege,"
+  echo "    Call of Duty, PUBG, Rust, Delta Force."
+  echo
+  echo "    Rodam normalmente: Counter-Strike 2, Elden Ring, Overwatch 2,"
+  echo "    Dead by Daylight, Marvel Rivals, Genshin Impact e a maior parte"
+  echo "    do catalogo de um jogador so."
+  echo
+  echo "    Confira um titulo antes de comprar:"
+  echo "      https://protondb.com          -- relatos de quem jogou"
+  echo "      https://areweanticheatyet.com -- situacao do anticheat"
+  echo
+  echo "    No Steam: Configuracoes > Compatibilidade > ligar o Proton para"
+  echo "    todos os titulos. Sem isso a loja esconde os jogos de Windows."
+  return 0
+}
+
 # expor_pandoc -- deixa o pandoc do Quarto visivel no PATH.
 #
 #   O rmarkdown (.Rmd sem Quarto) chama o pandoc do sistema e para com
@@ -750,7 +780,7 @@ instalar_rstudio() {
 instalar_avulsos() {
   # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
   # maquina que pediu apenas "base", nada disto e instalado.
-  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0 quer_r=0 quer_pessoal=0
+  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0 quer_r=0 quer_pessoal=0 quer_jogos=0
   if [ -n "$GRUPO" ]; then
     [ "$GRUPO" = "python" ]     && quer_python=1
     [ "$GRUPO" = "dados" ]      && quer_dados=1
@@ -759,6 +789,7 @@ instalar_avulsos() {
     [ "$GRUPO" = "editor" ]     && quer_editor=1
     [ "$GRUPO" = "r" ]          && quer_r=1
     [ "$GRUPO" = "pessoal" ]    && quer_pessoal=1
+    [ "$GRUPO" = "jogos" ]      && quer_jogos=1
   else
     tem_stack python     && quer_python=1
     tem_stack dados      && quer_dados=1
@@ -767,6 +798,7 @@ instalar_avulsos() {
     tem_stack editor     && quer_editor=1
     tem_stack r          && quer_r=1
     tem_stack pessoal    && quer_pessoal=1
+    tem_stack jogos      && quer_jogos=1
   fi
 
   if [ "$quer_python" = "1" ]; then
@@ -796,6 +828,21 @@ instalar_avulsos() {
     else
       instalar_flatpak com.spotify.Client "Spotify"
       instalar_whatsapp
+    fi
+  fi
+
+  # Steam, Heroic e ProtonUp-Qt vem do Flathub. O Steam do dnf exigiria o RPM
+  # Fusion nonfree; o Flatpak nao exige nada e traz o runtime de 32 bits que a
+  # maioria dos jogos precisa. A Epic nao publica launcher para Linux -- quem
+  # faz esse papel e o Heroic.
+  if [ "$quer_jogos" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria Steam, Heroic e ProtonUp-Qt via Flatpak"
+    else
+      instalar_flatpak com.valvesoftware.Steam "Steam"
+      instalar_flatpak com.heroicgameslauncher.hgl "Heroic (Epic, GOG, Amazon)"
+      instalar_flatpak net.davidotek.pupgui2 "ProtonUp-Qt"
+      avisar_jogos
     fi
   fi
 
@@ -872,7 +919,7 @@ instalar_avulsos() {
   [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&
     [ "$quer_escritorio" = "0" ] && [ "$quer_opcional" = "0" ] &&
     [ "$quer_editor" = "0" ] && [ "$quer_r" = "0" ] &&
-    [ "$quer_pessoal" = "0" ] &&
+    [ "$quer_pessoal" = "0" ] && [ "$quer_jogos" = "0" ] &&
     ok "nenhuma ferramenta avulsa pedida"
   return 0
 }
@@ -915,25 +962,49 @@ avisar_indisponiveis() {
 }
 
 # ------------------------------------------------------------- pos-instalacao
+# quer_pos <grupo> -- verdadeiro quando aquele grupo entrou neste run.
+#   Mudar grupo de usuario e habilitar servico sao mudancas de sistema que
+#   ninguem quer de surpresa: so acontecem para o que foi pedido.
+quer_pos() {
+  if [ -n "$GRUPO" ]; then
+    [ "$GRUPO" = "$1" ]
+  else
+    tem_stack "$1"
+  fi
+}
+
 pos_instalacao() {
-  # So mexe no Docker se ele foi pedido: habilitar servico e alterar grupo de
-  # usuario sao mudancas de sistema que ninguem quer de surpresa.
-  if [ -z "$GRUPO" ] && ! tem_stack container; then
-    return 0
+  if quer_pos container; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] habilitaria o docker e adicionaria o usuario ao grupo"
+    elif command -v docker >/dev/null 2>&1 && [ "$OS" = "linux" ]; then
+      sudo systemctl enable --now docker 2>/dev/null ||
+        aviso "nao consegui habilitar o servico docker"
+      # Sem isso, todo comando docker exige sudo.
+      if ! id -nG | tr ' ' '\n' | grep -qx docker; then
+        sudo usermod -aG docker "$USER"
+        aviso "adicionado ao grupo docker -- faca logout/login para valer"
+      fi
+    fi
   fi
-  [ -n "$GRUPO" ] && [ "$GRUPO" != "container" ] && return 0
 
-  if [ "$SIMULAR" = "1" ]; then
-    info "[simular] habilitaria o docker e adicionaria o usuario ao grupo"
-    return 0
-  fi
-
-  if command -v docker >/dev/null 2>&1 && [ "$OS" = "linux" ]; then
-    sudo systemctl enable --now docker 2>/dev/null ||       aviso "nao consegui habilitar o servico docker"
-    # Sem isso, todo comando docker exige sudo.
-    if ! groups | grep -q docker; then
-      sudo usermod -aG docker "$USER"
-      aviso "adicionado ao grupo docker -- faca logout/login para valer"
+  # GameMode sem o grupo instala e nao faz nada: a regra do polkit do Fedora
+  # (/usr/share/polkit-1/rules.d/gamemode.rules) so libera os helpers de
+  # governor e de GPU para quem esta no grupo "gamemode". Fora dele, o daemon
+  # sobe, aceita o jogo e falha em silencio no pkexec -- o governor da CPU
+  # continua em "schedutil" durante a partida, que e justamente o que o
+  # GameMode existe para mudar.
+  if quer_pos jogos; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] adicionaria o usuario ao grupo gamemode"
+    elif getent group gamemode >/dev/null 2>&1; then
+      if ! id -nG | tr ' ' '\n' | grep -qx gamemode; then
+        sudo usermod -aG gamemode "$USER" &&
+          aviso "adicionado ao grupo gamemode -- faca logout/login para valer" ||
+          aviso "nao consegui adicionar ao grupo gamemode; o GameMode nao vai mudar o governor"
+      else
+        ok "ja esta no grupo gamemode"
+      fi
     fi
   fi
   return 0

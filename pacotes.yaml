@@ -36,6 +36,7 @@
 #
 #   base           curl e o terminal -- o minimo de QUALQUER maquina
 #   pessoal        Spotify, WhatsApp, VLC
+#   jogos          Steam, Heroic (Epic), EA, Lutris, Proton e ferramentas
 #   navegador      Firefox | Chrome | Brave (escolhe-se UM em NAVEGADOR)
 #   escritorio     LibreOffice, OnlyOffice
 #   produtividade  utilitarios de janela, captura, busca
@@ -128,6 +129,97 @@ pacotes:
     brew: vlc
     cask: "sim"
     winget: VideoLAN.VLC
+    scoop: "-"
+
+  # jogos ----------------------------------------------------------------
+  # launchers e as ferramentas que fazem jogo de Windows rodar no Linux
+
+  - id: steam
+    nome: Steam
+    grupo: jogos
+    # No Fedora o pacote dnf exige o RPM Fusion nonfree; o Flatpak nao exige
+    # nada e ainda traz o proprio runtime de 32 bits, que e do que a maioria
+    # dos jogos precisa. Por isso Flatpak aqui.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: steam
+    cask: "sim"
+    winget: Valve.Steam
+    scoop: "-"
+
+  - id: heroic
+    nome: Heroic Games Launcher (Epic, GOG e Amazon)
+    grupo: jogos
+    # A Epic nao publica launcher para Linux. O Heroic e o cliente que a
+    # comunidade usa no lugar: faz login na conta Epic, baixa os jogos e roda
+    # por Proton. E tambem o caminho para GOG e Amazon Games.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: heroic
+    cask: "sim"
+    winget: HeroicGamesLauncher.HeroicGamesLauncher
+    scoop: "-"
+
+  - id: epic
+    nome: Epic Games Launcher
+    grupo: jogos
+    # Sem versao para Linux. La o caminho e o Heroic, acima.
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: epic-games
+    cask: "sim"
+    winget: EpicGames.EpicGamesLauncher
+    scoop: "-"
+
+  - id: ea
+    nome: EA app
+    grupo: jogos
+    # Sem versao para Linux. Roda por Proton dentro do Steam, do Heroic ou do
+    # Lutris -- mas nao se instala sozinho como aplicativo nativo.
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: ea
+    cask: "sim"
+    winget: ElectronicArts.EADesktop
+    scoop: "-"
+
+  - id: lutris
+    nome: Lutris (roda jogos fora das lojas)
+    grupo: jogos
+    dnf: lutris
+    apt: lutris
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
+  - id: jogos-ferramentas
+    nome: Ferramentas de jogo (GameMode, MangoHud, Gamescope, controles)
+    grupo: jogos
+    # gamemode: muda o governor da CPU durante o jogo. mangohud: overlay de
+    # FPS e temperatura. gamescope: compositor que resolve tela cheia e
+    # escalonamento em Wayland. steam-devices: regras udev sem as quais
+    # controle de Xbox/PlayStation nao e reconhecido.
+    dnf: gamemode mangohud gamescope steam-devices
+    apt: gamemode mangohud gamescope steam-devices
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
+  - id: protonup
+    nome: ProtonUp-Qt (instala versoes do Proton-GE)
+    grupo: jogos
+    # O Proton da Valve nao cobre tudo; o Proton-GE e a versao da comunidade
+    # que costuma fazer rodar o que o oficial nao faz. Isto instala e atualiza
+    # essas versoes sem precisar copiar pasta na mao.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: "-"
     scoop: "-"
 
   # navegador ------------------------------------------------------------

@@ -94,6 +94,7 @@ NOVO_GIT_EMAIL="$(perguntar_texto '   Seu e-mail' "$GIT_EMAIL")"
 NOVO_STACKS="$(perguntar_lista '2. Que stacks voce usa?' "$STACKS" \
   "base:curl e terminal -- o minimo de QUALQUER maquina" \
   "pessoal:Spotify, WhatsApp, VLC" \
+  "jogos:Steam, Heroic (Epic), Lutris, Proton e ferramentas" \
   "escritorio:LibreOffice, OnlyOffice" \
   "produtividade:utilitarios do KDE, captura de tela, PowerToys (Windows)" \
   "opcional:Obsidian, Syncthing" \

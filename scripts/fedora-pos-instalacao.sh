@@ -2,7 +2,9 @@
 # ============================================================================
 # fedora-pos-instalacao.sh -- o que todo Fedora KDE precisa depois de instalar
 #
-# Cada passo PERGUNTA antes de executar. Nada roda sozinho, exceto com --sim,
+# Cada passo obedece o perfil.conf (chaves FEDORA_*). Sem perfil, pergunta;
+# com perfil, executa o que voce ja escolheu. Use --perguntar para revisar.
+# Nada roda sozinho fora do que o perfil pediu, exceto com --sim,
 # que responde sim a tudo (util para reinstalar sem supervisao).
 #
 # Cobre o que o Fedora deliberadamente nao instala por questao de licenca ou
@@ -15,6 +17,7 @@
 # Uso:
 #   ./scripts/fedora-pos-instalacao.sh
 #   ./scripts/fedora-pos-instalacao.sh --sim        sem perguntar
+#   ./scripts/fedora-pos-instalacao.sh --perguntar  confirma passo a passo
 #   ./scripts/fedora-pos-instalacao.sh --simular    so mostra
 # ============================================================================
 
@@ -25,10 +28,12 @@ carregar_perfil
 
 SIMULAR=0
 SIM_A_TUDO=0
+PERGUNTAR_SEMPRE=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --sim)     SIM_A_TUDO=1; shift ;;
+    --sim)       SIM_A_TUDO=1; shift ;;
+    --perguntar) PERGUNTAR_SEMPRE=1; shift ;;
     --simular) SIMULAR=1; shift ;;
     -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) morre "argumento desconhecido: $1" ;;
@@ -54,9 +59,19 @@ info "GPU: $HW_GPU_MODELO"
 echo
 
 # perguntar <texto> -- devolve 0 para sim. Respeita --sim e --simular.
+#
+#   Com perfil.conf presente, NAO pergunta: as chaves FEDORA_* ja sao a
+#   resposta, dadas no configurar.sh, e cada passo so chega aqui depois de
+#   conferir a sua. Perguntar de novo transformava o script em dezesseis
+#   "next" seguidos para confirmar o que o usuario ja tinha escolhido.
+#   Quem quiser revisar passo a passo usa --perguntar.
 perguntar() {
   [ "$SIM_A_TUDO" = "1" ] && return 0
   [ "$SIMULAR" = "1" ] && return 0
+  if [ "$PERFIL_CARREGADO" = "1" ] && [ "$PERGUNTAR_SEMPRE" = "0" ]; then
+    echo "    (perfil.conf ja respondeu -- use --perguntar para revisar)"
+    return 0
+  fi
   printf '\n%s [S/n] ' "$1"
   read -r resposta
   case "$resposta" in

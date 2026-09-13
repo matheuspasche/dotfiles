@@ -11,6 +11,7 @@
 #   ./scripts/setup-r.sh --listar
 #   ./scripts/setup-r.sh --verificar
 #   ./scripts/setup-r.sh --simular
+#   ./scripts/setup-r.sh --sim               nao pergunta nada
 # ============================================================================
 
 set -uo pipefail
@@ -19,6 +20,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 carregar_perfil
 
 SIMULAR=0
+SIM_A_TUDO=0
 VERIFICAR=0
 LISTAR=0
 PRIMEIRO_PLANO=0
@@ -27,6 +29,7 @@ CONJUNTOS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --simular)          SIMULAR=1; shift ;;
+    --sim)              SIM_A_TUDO=1; shift ;;
     --verificar)        VERIFICAR=1; shift ;;
     --listar)           LISTAR=1; shift ;;
     --primeiro-plano)   PRIMEIRO_PLANO=1; shift ;;
@@ -174,15 +177,20 @@ garantir_libs_sistema() {
   aviso "bibliotecas de sistema ausentes (varios pacotes R nao compilam sem elas):"
   echo "    sudo $GER install -y$existentes"
 
+  # Pedir o stack de R ja e pedir o que ele precisa para compilar: com --sim,
+  # ou quando o proprio perfil declarou o stack, nao ha o que reconfirmar.
+  if [ "$SIM_A_TUDO" = "1" ]; then
+    resposta="s"
   # Sem terminal (CI, nohup, pipe) nao da para perguntar nem para o sudo
   # pedir senha: mostra o comando e segue, em vez de travar esperando.
-  if [ ! -t 0 ]; then
+  elif [ ! -t 0 ]; then
     aviso "sem terminal interativo -- rode o comando acima e repita este script"
     return 0
+  else
+    printf '    instalar agora? [S/n] '
+    read -r resposta
   fi
 
-  printf '    instalar agora? [S/n] '
-  read -r resposta
   case "$resposta" in
     [nN]*) aviso "pulado -- alguns pacotes R podem falhar" ; return 0 ;;
   esac

@@ -70,6 +70,7 @@ Escolha os que quiser no assistente. Cada um e independente.
 |---|---|
 | `base` | curl e o terminal — o minimo de QUALQUER maquina |
 | `pessoal` | Spotify, WhatsApp, VLC |
+| `jogos` | Steam, Heroic (Epic/GOG), Lutris, Proton-GE, GameMode, MangoHud |
 | `escritorio` | LibreOffice, OnlyOffice, Microsoft 365 |
 | `produtividade` | utilitarios do KDE e captura de tela; PowerToys e Everything no Windows |
 | `opcional` | Obsidian, Syncthing |
@@ -95,6 +96,21 @@ mundo", nao "todo programador". Da mesma forma, VS Code fica em `editor`.
 
 Formatar uma maquina de uso comum, entao, e `base pessoal navegador
 escritorio` -- sem nada de desenvolvimento.
+
+**Jogos no Linux:** a maior parte do catalogo roda por Proton, e em GPU AMD
+costuma rodar bem. O que nao roda e uma coisa so: jogo com **anticheat de
+kernel** cujo editor escolheu bloquear Linux — Fortnite, Valorant, League of
+Legends, Roblox, GTA V e VI, EA SPORTS FC, Apex Legends, Destiny 2, Rainbow
+Six Siege, Call of Duty, PUBG, Rust, Delta Force. Nao ha driver, Proton ou
+ajuste que resolva: e decisao do editor, nao limitacao tecnica do Linux.
+Rodam normalmente Counter-Strike 2, Elden Ring, Overwatch 2, Dead by
+Daylight, Marvel Rivals e Genshin Impact. Confira antes de comprar em
+[protondb.com](https://protondb.com) e
+[areweanticheatyet.com](https://areweanticheatyet.com).
+
+A Epic nao publica launcher para Linux: quem faz esse papel e o **Heroic**,
+que loga na sua conta Epic e baixa os jogos. O **EA app** tambem nao existe
+para Linux — jogos da EA rodam por Proton, pelo Steam ou pelo Heroic.
 
 **WhatsApp no Linux:** a Meta nao publica cliente de desktop para Linux. O
 kit instala o [ZapZap](https://github.com/zapzap-linux/zapzap) do Flathub, um
