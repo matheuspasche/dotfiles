@@ -151,8 +151,13 @@ case " $NOVO_STACKS " in
 esac
 
 echo
-NOVO_SEGUNDO_PLANO="$(perguntar_sim_nao \
-  '   Instalar bibliotecas em segundo plano (com log)?' "$LIBS_EM_SEGUNDO_PLANO")"
+# So faz sentido perguntar se ha biblioteca para instalar. Sem R nem Python
+# escolhidos, e mais uma confirmacao sobre algo que nao vai acontecer.
+NOVO_SEGUNDO_PLANO="$LIBS_EM_SEGUNDO_PLANO"
+if [ -n "$NOVO_LIBS_R" ] || [ -n "$NOVO_LIBS_PY" ]; then
+  NOVO_SEGUNDO_PLANO="$(perguntar_sim_nao \
+    '   Instalar bibliotecas em segundo plano (com log)?' "$LIBS_EM_SEGUNDO_PLANO")"
+fi
 
 # --------------------------------------------------------------- navegador ---
 echo
@@ -291,5 +296,8 @@ else
   echo "    1. ./scripts/setup-linux.sh             programas do manifesto"
 fi
 echo "    3. ./install.sh --extensoes             configuracoes e extensoes"
-[ -n "$NOVO_LIBS_R" ]  && echo "    4. ./scripts/setup-r.sh                 bibliotecas de R"
-[ -n "$NOVO_LIBS_PY" ] && echo "    5. ./scripts/setup-python.sh            bibliotecas de Python"
+# O "|| true" e o "exit 0" nao sao decoracao: sob "set -e", a ultima dica que
+# nao se aplica derrubaria o codigo de saida de um assistente que deu certo.
+[ -n "$NOVO_LIBS_R" ]  && echo "    4. ./scripts/setup-r.sh                 bibliotecas de R"  || true
+[ -n "$NOVO_LIBS_PY" ] && echo "    5. ./scripts/setup-python.sh            bibliotecas de Python" || true
+exit 0

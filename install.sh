@@ -6,7 +6,7 @@
 # vezes quiser. Arquivo pre-existente vira backup com timestamp.
 #
 # Uso:
-#   ./install.sh                  aplica tudo
+#   ./install.sh                  aplica o que o perfil.conf pedir
 #   ./install.sh --extensoes      tambem instala extensoes do VS Code
 #   ./install.sh --simular        mostra o que faria, sem escrever
 #   ./install.sh --apenas r       so as configuracoes de R (Makevars, Rprofile)
@@ -27,9 +27,22 @@ carregar_perfil
 SIMULAR=0
 EXTENSOES=0
 
-# Areas de configuracao aplicaveis. Sem --apenas, aplica todas.
+# Areas de configuracao aplicaveis.
+#
+# Sem --apenas, seguem o perfil: nao ha por que escrever um ~/.gitconfig numa
+# maquina que nao pediu o stack "dev", nem settings do VS Code sem o stack
+# "editor", nem Makevars sem o stack "r". Sem perfil nenhum, aplica todas --
+# quem roda o install.sh cru esta pedindo o kit inteiro.
 AREAS_VALIDAS="git vscode r"
-AREAS="$AREAS_VALIDAS"
+AREAS=""
+if [ "${PERFIL_CARREGADO:-0}" = "1" ]; then
+  case " ${STACKS:-} " in *" dev "*)    AREAS="$AREAS git" ;; esac
+  case " ${STACKS:-} " in *" editor "*) AREAS="$AREAS vscode" ;; esac
+  case " ${STACKS:-} " in *" r "*)      AREAS="$AREAS r" ;; esac
+  AREAS="${AREAS# }"
+else
+  AREAS="$AREAS_VALIDAS"
+fi
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -217,6 +230,10 @@ if [ "$EXTENSOES" = "1" ] && quer_area vscode; then
 fi
 
 echo
+if [ -z "$AREAS" ]; then
+  ok "install concluido -- nenhuma area a aplicar para os stacks deste perfil."
+  exit 0
+fi
 ok "install concluido (areas: $AREAS)."
 # A dica precisa falar do que foi realmente aplicado: mandar conferir o git
 # depois de um "--apenas r" so confunde. O "|| true" nao e decorativo: sob
