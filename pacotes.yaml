@@ -72,14 +72,14 @@ pacotes:
     winget: cURL.cURL
     scoop: curl
 
-  - id: btop
-    nome: btop
+  - id: gnome-system-monitor
+    nome: Monitor do Sistema
     grupo: base
-    dnf: btop
-    apt: btop
-    brew: btop
-    winget: btop.btop
-    scoop: btop
+    dnf: gnome-system-monitor
+    apt: gnome-system-monitor
+    brew: "-"
+    winget: "-"
+    scoop: "-"
 
   - id: windows-terminal
     nome: Windows Terminal
