@@ -93,6 +93,19 @@ pacotes:
     winget: Microsoft.VisualStudioCode
     scoop: vscode
 
+  - id: claude-code
+    nome: Claude Code (CLI)
+    grupo: editor
+    # Nao ha pacote no dnf/apt, e ainda nao foi confirmado se existe
+    # formula/pacote no brew, winget ou scoop -- por isso tudo "-" aqui.
+    # No Linux, setup-linux.sh instala pelo script oficial da Anthropic
+    # (curl | bash), igual ao uv.
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
   - id: node
     nome: Node.js LTS
     grupo: editor
