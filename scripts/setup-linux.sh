@@ -147,6 +147,57 @@ configurar_repos() {
 }
 
 # ----------------------------------------------------------------- instalar --
+# resolver_java <gerenciador> <pacote-do-manifesto>
+#   O pacote de JDK do manifesto e um numero fixo (ex.: java-17-openjdk-devel),
+#   mas Fedora e Ubuntu descontinuam versoes antigas do OpenJDK a cada par de
+#   releases -- foi exatamente isso que quebrou java-17-openjdk-devel no
+#   Fedora 44 ("Nenhuma correspondencia para o argumento"). Em vez de fixar
+#   um numero que expira, confere se o pacote pinado ainda existe e, se nao
+#   existir mais, escolhe a versao numerada mais alta disponivel no lugar.
+#   Nunca escolhe builds "latest"/pre-lancamento (java-latest-openjdk no
+#   dnf): sao instaveis demais para um ambiente de trabalho.
+resolver_java() {
+  local ger="$1" pinado="$2" nome versao maior=0 pacote=""
+
+  case "$ger" in
+    dnf)
+      if dnf list available "$pinado" >/dev/null 2>&1; then
+        printf '%s\n' "$pinado"
+        return 0
+      fi
+      while IFS= read -r nome; do
+        # primeira coluna da saida do dnf, sem o sufixo de arquitetura
+        # (".x86_64"): "java-25-openjdk-devel.x86_64" -> "java-25-openjdk-devel"
+        nome="${nome%%[[:space:]]*}"
+        nome="${nome%.*}"
+        [[ "$nome" =~ ^java-([0-9]+)-openjdk-devel$ ]] || continue
+        versao="${BASH_REMATCH[1]}"
+        if [ "$versao" -gt "$maior" ]; then
+          maior="$versao"
+          pacote="$nome"
+        fi
+      done < <(dnf list available 'java-*-openjdk-devel' 2>/dev/null)
+      ;;
+    apt)
+      if apt-cache show "$pinado" >/dev/null 2>&1; then
+        printf '%s\n' "$pinado"
+        return 0
+      fi
+      while IFS= read -r nome; do
+        [[ "$nome" =~ ^openjdk-([0-9]+)-jdk$ ]] || continue
+        versao="${BASH_REMATCH[1]}"
+        if [ "$versao" -gt "$maior" ]; then
+          maior="$versao"
+          pacote="$nome"
+        fi
+      done < <(apt-cache pkgnames 'openjdk-' 2>/dev/null)
+      ;;
+  esac
+
+  [ -n "$pacote" ] && printf '%s\n' "$pacote"
+  return 0
+}
+
 instalar_pacotes() {
   local -a lista=()
   local -a grupos=()
@@ -180,6 +231,26 @@ instalar_pacotes() {
       aviso "navegador '$NAVEGADOR' nao disponivel para $GER -- veja docs/"
     fi
   fi
+
+  # O pacote de JDK pode ter saido do repositorio desde a ultima vez que o
+  # manifesto foi atualizado (ver resolver_java acima). So mexe em quem bate
+  # com o formato conhecido -- nunca troca um pacote que nao seja JDK.
+  local i pacote_java
+  for i in "${!lista[@]}"; do
+    case "${lista[$i]}" in
+      java-*-openjdk-devel|openjdk-*-jdk)
+        pacote_java="$(resolver_java "$GER" "${lista[$i]}")"
+        if [ -z "$pacote_java" ]; then
+          aviso "nenhuma versao do OpenJDK disponivel -- pulando ${lista[$i]}"
+          unset 'lista[i]'
+        elif [ "$pacote_java" != "${lista[$i]}" ]; then
+          aviso "${lista[$i]} nao existe mais no repositorio -- usando $pacote_java no lugar"
+          lista[i]="$pacote_java"
+        fi
+        ;;
+    esac
+  done
+  lista=("${lista[@]}")
 
   [ "${#lista[@]}" -eq 0 ] && { aviso "nada a instalar"; return 0; }
 
