@@ -94,7 +94,17 @@ configurar_repos() {
     # Docker CE (o docker do repositorio padrao do Fedora e o moby, mais velho)
     if [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
       info "adicionando repositorio do Docker"
-      sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+      # Baixar o .repo direto e o que o "config-manager --add-repo" fazia. A
+      # opcao foi removida no dnf5 (Fedora 41+), que quer "addrepo
+      # --from-repofile="; curl funciona nas duas versoes e nao exige detectar
+      # qual delas esta na maquina.
+      if ! sudo curl -fsSL https://download.docker.com/linux/fedora/docker-ce.repo \
+             -o /etc/yum.repos.d/docker-ce.repo; then
+        # Repositorio de terceiro fora do ar nao pode derrubar a instalacao
+        # inteira: o resto do manifesto continua valido.
+        sudo rm -f /etc/yum.repos.d/docker-ce.repo
+        aviso "nao foi possivel adicionar o repositorio do Docker; siga sem ele"
+      fi
     fi
   fi
 
