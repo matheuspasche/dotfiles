@@ -246,9 +246,15 @@ instalar_avulsos() {
     elif command -v uv >/dev/null 2>&1; then
       ok "uv ja instalado"
     else
-      # Instalador oficial da Astral; vai para ~/.local/bin, sem sudo.
+      # Instalador oficial da Astral; vai para ~/.local/bin, sem sudo. Sob
+      # set -e, um curl que falha (rede instavel, proxy corporativo)
+      # abortaria o setup-linux.sh inteiro -- inclusive o que vem depois do
+      # bloco de Python e nao tem nada a ver com ele (DuckDB, DBeaver,
+      # ONLYOFFICE, Obsidian, Docker). Mesmo tratamento que essas ferramentas
+      # ja recebem: falha de terceiro vira aviso, nao aborta o resto.
       info "instalando uv"
-      curl -LsSf https://astral.sh/uv/install.sh | sh
+      curl -LsSf https://astral.sh/uv/install.sh | sh ||
+        aviso "nao consegui instalar o uv -- sem rede ou astral.sh bloqueado. Rode de novo, ou instale manualmente: https://docs.astral.sh/uv/"
     fi
   fi
 
@@ -261,7 +267,8 @@ instalar_avulsos() {
         ok "duckdb ja instalado"
       else
         info "instalando DuckDB CLI"
-        curl -fsSL https://install.duckdb.org | sh
+        curl -fsSL https://install.duckdb.org | sh ||
+          aviso "nao consegui instalar o DuckDB CLI -- instale manualmente: https://duckdb.org"
       fi
 
       # DBeaver via Flatpak: evita conflito de versao de JDK com o Spark.

@@ -180,10 +180,17 @@ manifesto_valor() {
 #   para aquele gerenciador. Pacotes marcados "-" sao silenciosamente pulados.
 pacotes_para() {
   local ger="$1" grupo="${2:-}" id valor
+  local -a partes
   while IFS= read -r id; do
     [ -z "$id" ] && continue
     valor="$(manifesto_valor "$id" "$ger")"
-    [ -n "$valor" ] && printf '%s\n' "$valor"
+    [ -z "$valor" ] && continue
+    # Um id pode valer varios pacotes nativos (ex.: "kate spectacle filelight
+    # kcalc"). Sem este split, o chamador recebe a linha inteira como um
+    # elemento so de array, e "apt-get install -y" tenta instalar um pacote
+    # cujo nome tem espaco dentro -- que nunca existe.
+    read -ra partes <<< "$valor"
+    printf '%s\n' "${partes[@]}"
   done < <(manifesto_ids "$grupo")
   # Sem este return, o status seria o do ultimo teste do laco -- que e falso
   # sempre que o ultimo pacote lido nao existe para este gerenciador.
