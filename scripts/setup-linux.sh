@@ -289,5 +289,28 @@ pos_instalacao
 echo
 info "setup concluido. Proximos passos:"
 echo "  1. ./install.sh --extensoes   aplica configuracoes e extensoes"
-echo "  2. gh auth login              reautentica o GitHub"
-echo "  3. ./scripts/cofre.sh abrir   restaura o cofre de segredos"
+
+# As bibliotecas sao passo separado: o setup-linux.sh instala o interpretador
+# e o uv, nunca os pacotes. Sem lembrar aqui, quem segue o terminal -- e nao o
+# README -- termina com Python instalado e "No module named pandas".
+passo=2
+if [ -n "${LIBS_PY:-}" ]; then
+  echo "  $passo. ./scripts/setup-python.sh   bibliotecas de Python (~/.venvs/lab)"
+  passo=$(( passo + 1 ))
+fi
+if [ -n "${LIBS_R:-}" ]; then
+  echo "  $passo. ./scripts/setup-r.sh        bibliotecas de R"
+  passo=$(( passo + 1 ))
+fi
+
+echo "  $passo. gh auth login              reautentica o GitHub"
+passo=$(( passo + 1 ))
+echo "  $passo. ./scripts/cofre.sh abrir   restaura o cofre de segredos"
+
+# O venv e invisivel para o python3 do sistema. E a duvida numero um depois
+# de instalar: "instalou, mas o import falha".
+if [ -n "${LIBS_PY:-}" ]; then
+  echo
+  echo "  As bibliotecas de Python vao para ~/.venvs/lab, nao para o Python"
+  echo "  do sistema. Para usa-las: source ~/.venvs/lab/bin/activate"
+fi
