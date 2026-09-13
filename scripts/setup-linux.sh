@@ -283,6 +283,20 @@ instalar_flatpak() {
     return 0
   fi
 
+  # O Flathub e um passo opcional e interativo do fedora-pos-instalacao.sh
+  # (pergunta antes de habilitar). Quem pulou aquele script, ou respondeu
+  # "nao" ali, chega aqui sem o remoto e toda instalacao por Flatpak falha
+  # com "Nenhuma ref de remoto localizada para 'flathub'" -- as tres, uma
+  # atras da outra, pelo mesmo motivo. Habilitar aqui e so registrar um
+  # repositorio publico: nao e um passo que precise de confirmacao, ao
+  # contrario dos do fedora-pos-instalacao.sh (que mexem em firmware/GPU).
+  if ! flatpak remotes --columns=name 2>/dev/null | grep -qx flathub; then
+    info "habilitando o Flathub (nao estava configurado)"
+    flatpak remote-add --if-not-exists flathub \
+      https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null ||
+      { aviso "nao consegui habilitar o Flathub -- instale o $rotulo manualmente"; return 0; }
+  fi
+
   if flatpak list --app 2>/dev/null | grep -qi "$app"; then
     ok "$rotulo ja instalado"
     return 0
