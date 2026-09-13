@@ -15,6 +15,11 @@
 #   - valor "-" significa "nao disponivel neste gerenciador" (pula)
 #   - chaves de gerenciador: dnf, apt, brew, cask, winget, scoop
 #   - grupo: base | dados | r | python | container | jvm | opcional
+#   - linux: avulso | nao -- obrigatorio quando dnf E apt sao "-", pois o
+#     setup-linux.sh pula esses em silencio. "avulso" = o proprio script o
+#     instala por fora (Flatpak, .rpm/.deb, instalador oficial); "nao" = nao
+#     existe equivalente no Linux. Sem a chave, o setup avisa que o programa
+#     ficou de fora -- e assim um esquecimento aqui aparece, em vez de sumir.
 # ============================================================================
 
 pacotes:
@@ -100,6 +105,7 @@ pacotes:
     # formula/pacote no brew, winget ou scoop -- por isso tudo "-" aqui.
     # No Linux, setup-linux.sh instala pelo script oficial da Anthropic
     # (curl | bash), igual ao uv.
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -118,6 +124,7 @@ pacotes:
   - id: windows-terminal
     nome: Windows Terminal
     grupo: base
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -127,6 +134,7 @@ pacotes:
   - id: powershell7
     nome: PowerShell 7
     grupo: base
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -146,6 +154,7 @@ pacotes:
   - id: uv
     nome: uv (gerenciador de pacotes Python)
     grupo: python
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: uv
@@ -165,6 +174,10 @@ pacotes:
   - id: rstudio
     nome: RStudio Desktop
     grupo: r
+    # A Posit nao mantem repositorio dnf/apt e o RStudio nao esta no Flathub:
+    # no Linux so existe o .rpm/.deb avulso do site. O setup-linux.sh baixa e
+    # instala esse arquivo (ver instalar_rstudio la).
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: rstudio
@@ -172,9 +185,25 @@ pacotes:
     winget: Posit.RStudio
     scoop: "-"
 
+  - id: quarto
+    nome: Quarto CLI
+    grupo: r
+    # Quem renderiza .qmd e .Rmd e este binario -- o pacote R "quarto" e so
+    # um envelope em volta dele. No Linux a Posit publica .rpm/.deb nas
+    # releases do GitHub, sem repositorio: o setup-linux.sh pega sempre a
+    # release "latest" (ver instalar_quarto).
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: quarto
+    cask: "sim"
+    winget: Posit.Quarto
+    scoop: "-"
+
   - id: rtools
     nome: Rtools (toolchain para compilar Rcpp no Windows)
     grupo: r
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -203,6 +232,7 @@ pacotes:
   - id: dbeaver
     nome: DBeaver Community
     grupo: dados
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: dbeaver-community
@@ -213,6 +243,7 @@ pacotes:
   - id: duckdb
     nome: DuckDB CLI
     grupo: dados
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: duckdb
@@ -295,6 +326,7 @@ pacotes:
     nome: ONLYOFFICE Desktop Editors
     grupo: escritorio
     # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: onlyoffice
@@ -307,6 +339,7 @@ pacotes:
     grupo: escritorio
     # Sem equivalente nativo no Linux -- la o caminho e a versao web ou o
     # LibreOffice. O setup avisa em vez de falhar.
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: microsoft-office
@@ -319,6 +352,7 @@ pacotes:
   - id: powertoys
     nome: PowerToys (FancyZones, PowerRename, Run)
     grupo: produtividade
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -328,6 +362,7 @@ pacotes:
   - id: everything
     nome: Everything (busca instantanea de arquivos)
     grupo: produtividade
+    linux: nao
     dnf: "-"
     apt: "-"
     brew: "-"
@@ -361,6 +396,7 @@ pacotes:
     nome: Obsidian
     grupo: opcional
     # No Linux vem por Flatpak; o setup-linux.sh cuida disso.
+    linux: avulso
     dnf: "-"
     apt: "-"
     brew: obsidian

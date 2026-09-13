@@ -107,49 +107,92 @@ if ! command -v make >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
   esac
 fi
 
-# Bibliotecas de sistema que varios pacotes R exigem para compilar. A falta
-# delas produz erro de compilacao confuso, longe da causa real.
-if [ "$(detectar_os)" != "macos" ]; then
-  faltando=""
+# garantir_libs_sistema <conjunto>...
+#   Instala as bibliotecas -devel declaradas em sistema_dnf/sistema_apt dos
+#   conjuntos escolhidos. A falta delas produz erro de compilacao confuso,
+#   longe da causa real: foi assim que a ausencia de libuv-devel apareceu
+#   como "tidyverse falhou", 200 linhas depois do erro real em uv.h.
+garantir_libs_sistema() {
+  local chave p faltando="" existentes="" ausentes="" resposta=""
+
+  [ "$(detectar_os)" = "macos" ] && return 0
   case "$GER" in
-    dnf)
-      for p in libcurl-devel openssl-devel libxml2-devel fontconfig-devel \
-               freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel \
-               harfbuzz-devel fribidi-devel; do
-        rpm -q "$p" >/dev/null 2>&1 || faltando="$faltando $p"
-      done
-      ;;
-    apt)
-      for p in libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev \
-               libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-               libharfbuzz-dev libfribidi-dev; do
-        dpkg -s "$p" >/dev/null 2>&1 || faltando="$faltando $p"
-      done
-      ;;
+    dnf) chave=sistema_dnf ;;
+    apt) chave=sistema_apt ;;
+    *)   return 0 ;;
   esac
-  if [ -n "$faltando" ]; then
-    aviso "bibliotecas de sistema ausentes (tidyverse e afins nao compilam sem elas):"
-    echo "    sudo $GER install -y$faltando"
-    if [ "$SIMULAR" != "1" ]; then
-      printf '    instalar agora? [s/N] '
-      read -r resposta
-      case "$resposta" in
-        [sS]*)
-          if [ "$GER" = "dnf" ]; then
-            # shellcheck disable=SC2086
-            sudo dnf install -y $faltando
-          else
-            # shellcheck disable=SC2086
-            sudo apt-get install -y $faltando
-          fi
-          ;;
-        *) aviso "pulado -- alguns pacotes R podem falhar" ;;
-      esac
+
+  # Uniao das dependencias dos conjuntos pedidos, sem repetir.
+  local id
+  for id in "$@"; do
+    for p in $(conjunto_valor "$id" "$chave"); do
+      case " $faltando " in *" $p "*) continue ;; esac
+      if [ "$GER" = "dnf" ]; then
+        rpm -q "$p" >/dev/null 2>&1 && continue
+      else
+        dpkg -s "$p" >/dev/null 2>&1 && continue
+      fi
+      faltando="$faltando $p"
+    done
+  done
+
+  [ -z "$faltando" ] && { ok "bibliotecas de sistema para compilar pacotes R: presentes"; return 0; }
+
+  # Nome que nao existe mais no repositorio nao pode derrubar o lote inteiro:
+  # "dnf install a b c" e uma transacao so, entao um unico nome errado impede
+  # a instalacao de TODOS os outros -- foi o que o java-17-openjdk-devel fez
+  # com o setup-linux.sh. Aqui cada nome e conferido antes.
+  for p in $faltando; do
+    if [ "$GER" = "dnf" ]; then
+      if dnf repoquery --qf '%{name}' "$p" 2>/dev/null | grep -q .; then
+        existentes="$existentes $p"
+      else
+        ausentes="$ausentes $p"
+      fi
+    else
+      if apt-cache show "$p" >/dev/null 2>&1; then
+        existentes="$existentes $p"
+      else
+        ausentes="$ausentes $p"
+      fi
     fi
-  else
-    ok "bibliotecas de sistema para compilar pacotes R: presentes"
+  done
+
+  [ -n "$ausentes" ] &&
+    aviso "sem estes nomes no repositorio desta distribuicao:$ausentes -- pacotes R que dependam deles podem falhar"
+
+  [ -z "$existentes" ] && return 0
+
+  if [ "$SIMULAR" = "1" ]; then
+    info "[simular] sudo $GER install -y$existentes"
+    return 0
   fi
-fi
+
+  aviso "bibliotecas de sistema ausentes (varios pacotes R nao compilam sem elas):"
+  echo "    sudo $GER install -y$existentes"
+
+  # Sem terminal (CI, nohup, pipe) nao da para perguntar nem para o sudo
+  # pedir senha: mostra o comando e segue, em vez de travar esperando.
+  if [ ! -t 0 ]; then
+    aviso "sem terminal interativo -- rode o comando acima e repita este script"
+    return 0
+  fi
+
+  printf '    instalar agora? [S/n] '
+  read -r resposta
+  case "$resposta" in
+    [nN]*) aviso "pulado -- alguns pacotes R podem falhar" ; return 0 ;;
+  esac
+
+  if [ "$GER" = "dnf" ]; then
+    # shellcheck disable=SC2086
+    sudo dnf install -y $existentes || aviso "a instalacao das bibliotecas de sistema falhou"
+  else
+    # shellcheck disable=SC2086
+    sudo apt-get install -y $existentes || aviso "a instalacao das bibliotecas de sistema falhou"
+  fi
+  return 0
+}
 
 # --------------------------------------------------------------- verificar ---
 if [ "$VERIFICAR" = "1" ]; then
@@ -200,7 +243,14 @@ echo
 info "$(printf '%s\n' $resolvidos | grep -c .) conjunto(s), $total pacotes, ~$minutos min"
 for id in $resolvidos; do echo "    $id -- $(conjunto_valor "$id" nome)"; done
 
+# As -devel vem antes da compilacao, nao depois: instalar no meio nao adianta,
+# porque o pacote R que ja falhou nao e tentado de novo no mesmo run.
+echo
+# shellcheck disable=SC2086
+garantir_libs_sistema $resolvidos
+
 if [ "$SIMULAR" = "1" ]; then
+  echo
   info "[simular] Rscript instalar.R $pacotes"
   exit 0
 fi

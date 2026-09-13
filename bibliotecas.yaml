@@ -17,6 +17,16 @@
 #               linguagem (install.packages para R, uv/pip para Python)
 #   minutos     estimativa grosseira de instalacao, para avisar o usuario
 #   requer      outro conjunto que precisa vir antes (opcional)
+#   sistema_dnf bibliotecas -devel que este conjunto precisa para compilar,
+#   sistema_apt no Fedora e no Debian/Ubuntu (opcional)
+#
+# Sobre sistema_dnf / sistema_apt: ficam AQUI, junto do conjunto que precisa
+# delas, e nao numa lista solta no setup-r.sh. Assim quem instala so "r-banco"
+# nao arrasta o mundo, e quem acrescenta um conjunto novo declara a dependencia
+# no mesmo lugar em que declara os pacotes -- em vez de descobrir o que faltava
+# num erro de compilador. Foi o que aconteceu com o fs: faltava libuv-devel, e
+# o erro real ("uv.h: arquivo inexistente") aparecia 200 linhas depois, ja
+# como "tidyverse falhou".
 # ============================================================================
 
 conjuntos:
@@ -28,6 +38,11 @@ conjuntos:
     nome: Essencial do R
     minutos: 12
     pacotes: tidyverse data.table duckdb arrow janitor here fs glue
+    # libuv: o fs nao compila sem ela (uv.h). cmake: o arrow usa para montar
+    # a libarrow embutida. O resto atende curl/openssl/xml2/ragg/textshaping,
+    # que entram como dependencia do tidyverse.
+    sistema_dnf: libuv-devel cmake libcurl-devel openssl-devel libxml2-devel fontconfig-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel harfbuzz-devel fribidi-devel
+    sistema_apt: libuv1-dev cmake libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev libpng-dev libtiff-dev libjpeg-dev libharfbuzz-dev libfribidi-dev
 
   - id: r-modelagem
     linguagem: r
@@ -61,18 +76,34 @@ conjuntos:
     nome: Relatorios e documentos
     minutos: 10
     pacotes: quarto rmarkdown knitr gt gtsummary officer
+    # O pacote R "quarto" e so um envelope: quem renderiza e o Quarto CLI,
+    # instalado pelo setup-linux.sh -- que ja traz um pandoc embutido.
+    #
+    # Sem sistema_dnf de proposito: o Fedora nao empacota o pandoc solto
+    # (so as bibliotecas Haskell ghc-*-pandoc), entao pedi-lo aqui geraria
+    # "nenhuma correspondencia". La o pandoc vem do Quarto. No Debian/Ubuntu
+    # o pacote existe e vale instalar, porque o rmarkdown puro (sem Quarto)
+    # procura o pandoc do sistema.
+    sistema_apt: pandoc
 
   - id: r-banco
     linguagem: r
     nome: Bancos de dados
     minutos: 8
     pacotes: DBI RPostgres RSQLite odbc dbplyr pool
+    # libpq: cliente do PostgreSQL, que o RPostgres linka. unixODBC: idem
+    # para o odbc. O RSQLite traz o SQLite embutido, nao precisa de nada.
+    sistema_dnf: libpq-devel unixODBC-devel
+    sistema_apt: libpq-dev unixodbc-dev
 
   - id: r-dev
     linguagem: r
     nome: Desenvolvimento de pacotes
     minutos: 10
     pacotes: devtools usethis testthat roxygen2 pkgdown covr lintr
+    # libgit2: o devtools e o usethis falam com o git pelo pacote gert.
+    sistema_dnf: libgit2-devel
+    sistema_apt: libgit2-dev
 
   # ================================================================= PYTHON ==
 
