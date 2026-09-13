@@ -370,12 +370,49 @@ url_release_github() {
   fi
 }
 
+# instalar_quarto_tarball -- Quarto em ~/.local, sem root.
+#   Caminho para maquina onde nao se tem sudo (WSL corporativo, laboratorio,
+#   servidor compartilhado). O Quarto e autocontido: basta descompactar e
+#   apontar um link para o binario.
+instalar_quarto_tarball() {
+  local url="$1" dir destino="$HOME/.local/opt/quarto" bin="$HOME/.local/bin"
+
+  dir="$(mktemp -d)"
+  info "baixando Quarto CLI (tarball, sem root)"
+  if ! curl -fSL --retry 2 -o "$dir/quarto.tar.gz" "$url"; then
+    rm -rf "$dir"
+    aviso "nao consegui baixar o Quarto"
+    return 1
+  fi
+
+  mkdir -p "$destino" "$bin"
+  # --strip-components=1 tira o diretorio "quarto-<versao>" de dentro do
+  # tarball: sem isso o caminho final carregaria o numero da versao, e o
+  # link quebraria na proxima atualizacao.
+  rm -rf "${destino:?}"/*
+  if ! tar -xzf "$dir/quarto.tar.gz" -C "$destino" --strip-components=1; then
+    rm -rf "$dir"
+    aviso "nao consegui descompactar o Quarto"
+    return 1
+  fi
+  rm -rf "$dir"
+
+  ln -sf "$destino/bin/quarto" "$bin/quarto"
+  ok "Quarto CLI instalado em $destino"
+
+  case ":$PATH:" in
+    *":$bin:"*) ;;
+    *) aviso "$bin nao esta no PATH -- abra um terminal novo ou rode ./install.sh" ;;
+  esac
+  return 0
+}
+
 # instalar_quarto -- Quarto CLI, sempre na release estavel mais recente.
 #   Quem renderiza .qmd/.Rmd e este binario; o pacote R "quarto" so conversa
 #   com ele. A Posit publica .rpm/.deb nas releases do GitHub, sem
 #   repositorio, entao a versao vem da API em vez de estar escrita aqui.
 instalar_quarto() {
-  local padrao url
+  local padrao url url_tar
 
   if command -v quarto >/dev/null 2>&1; then
     ok "Quarto CLI ja instalado ($(quarto --version 2>/dev/null))"
@@ -401,8 +438,106 @@ instalar_quarto() {
     return 0
   fi
 
-  instalar_pacote_baixado "$url" "Quarto CLI" ||
+  # Pacote do sistema e o caminho preferido (entra no PATH de todo mundo e
+  # sai pelo gerenciador). Sem root utilizavel, o tarball em ~/.local resolve
+  # igual -- e melhor que terminar sem Quarto nenhum.
+  if sudo -n true 2>/dev/null; then
+    instalar_pacote_baixado "$url" "Quarto CLI" && return 0
+    aviso "tentando o tarball em ~/.local no lugar"
+  else
+    info "sem sudo sem senha -- instalando o Quarto em ~/.local"
+  fi
+
+  case "$(uname -m)" in
+    x86_64)  url_tar="$(url_release_github quarto-dev/quarto-cli 'linux-amd64\.tar\.gz$')" ;;
+    aarch64) url_tar="$(url_release_github quarto-dev/quarto-cli 'linux-arm64\.tar\.gz$')" ;;
+  esac
+
+  if [ -z "${url_tar:-}" ]; then
+    aviso "nao consegui descobrir o tarball do Quarto -- instale manualmente: https://quarto.org/docs/get-started/"
+    return 0
+  fi
+
+  instalar_quarto_tarball "$url_tar" ||
     aviso "instale manualmente: https://quarto.org/docs/get-started/"
+  return 0
+}
+
+# expor_pandoc -- deixa o pandoc do Quarto visivel no PATH.
+#
+#   O rmarkdown (.Rmd sem Quarto) chama o pandoc do sistema e para com
+#   "pandoc version 2.8 or higher is required" quando nao acha. No Fedora
+#   isso e garantido: a distribuicao nao empacota o pandoc solto, so as
+#   bibliotecas Haskell. Mas o Quarto ja traz um pandoc completo dentro
+#   dele, entao o certo e apontar para esse -- nao instalar um segundo.
+#
+#   Um link em ~/.local/bin resolve para o R, o RStudio e o terminal de uma
+#   vez, sem mexer em .bashrc de ninguem.
+expor_pandoc() {
+  local quarto_bin raiz pandoc bin="$HOME/.local/bin"
+
+  if command -v pandoc >/dev/null 2>&1; then
+    ok "pandoc: $(command -v pandoc)"
+    return 0
+  fi
+
+  quarto_bin="$(command -v quarto 2>/dev/null || echo "$HOME/.local/bin/quarto")"
+  [ -x "$quarto_bin" ] || return 0
+
+  # Resolve o link para chegar na arvore real do Quarto (~/.local/opt/quarto
+  # ou /opt/quarto, conforme tenha vindo por tarball ou por pacote).
+  quarto_bin="$(readlink -f "$quarto_bin")"
+  raiz="$(dirname "$(dirname "$quarto_bin")")"
+
+  # Procurado em vez de escrito: o caminho tem a arquitetura no meio
+  # (bin/tools/x86_64/pandoc) e ja mudou de forma entre versoes do Quarto.
+  pandoc="$(find "$raiz" -type f -name pandoc -perm -u+x 2>/dev/null | head -1)"
+  if [ -z "$pandoc" ]; then
+    aviso "nao achei o pandoc dentro do Quarto -- .Rmd em PDF pode falhar"
+    return 0
+  fi
+
+  mkdir -p "$bin"
+  ln -sf "$pandoc" "$bin/pandoc"
+  ok "pandoc do Quarto exposto em $bin/pandoc ($("$pandoc" --version | head -1))"
+  return 0
+}
+
+# garantir_latex -- LaTeX que se completa sozinho, para renderizar PDF.
+#
+#   Instala o TinyTeX MESMO quando ja existe LaTeX do sistema, e isso e
+#   deliberado. Medido nesta maquina em 13/09/2026: com o texlive do Fedora
+#   (263 pacotes instalados), "quarto render" de um .qmd com chunk de R
+#   morria em "LaTeX Error: File `framed.sty' not found" -- e o tlmgr que
+#   vem da distribuicao nao instala pacote sob demanda, porque quem manda
+#   nos arquivos e o dnf. O caminho la seria caçar texlive-<pacote> um a um,
+#   a cada documento novo.
+#
+#   O TinyTeX resolve pela raiz: no mesmo documento ele baixou framed,
+#   selnolig e hyphen-portuguese sozinho, durante o render. Mora em
+#   ~/.TinyTeX, nao precisa de root e nao conflita com o texlive do sistema.
+garantir_latex() {
+  local quarto_bin
+
+  if [ -d "$HOME/.TinyTeX" ]; then
+    ok "TinyTeX ja instalado"
+    return 0
+  fi
+
+  # Pode ter acabado de ser instalado em ~/.local/bin, que ainda nao esta no
+  # PATH deste shell.
+  if command -v quarto >/dev/null 2>&1; then
+    quarto_bin="quarto"
+  elif [ -x "$HOME/.local/bin/quarto" ]; then
+    quarto_bin="$HOME/.local/bin/quarto"
+  else
+    aviso "sem Quarto -- sem ele nao instalo o TinyTeX; PDF nao vai renderizar"
+    return 0
+  fi
+
+  info "instalando TinyTeX (LaTeX para PDF, ~200 MB, sem root)"
+  "$quarto_bin" install tinytex --no-prompt >/dev/null 2>&1 ||
+    aviso "o TinyTeX falhou -- rode 'quarto install tinytex' manualmente"
   return 0
 }
 
@@ -487,10 +622,14 @@ instalar_avulsos() {
 
   if [ "$quer_r" = "1" ]; then
     if [ "$SIMULAR" = "1" ]; then
-      info "[simular] instalaria o RStudio Desktop e o Quarto CLI (.rpm/.deb)"
+      info "[simular] instalaria o RStudio Desktop, o Quarto CLI e o TinyTeX"
     else
       instalar_rstudio
       instalar_quarto
+      # Os dois dependem do Quarto ja estar no disco: um usa o pandoc que
+      # vem dentro dele, o outro e instalado por ele.
+      expor_pandoc
+      garantir_latex
     fi
   fi
 

@@ -75,7 +75,11 @@ conjuntos:
     linguagem: r
     nome: Relatorios e documentos
     minutos: 10
-    pacotes: quarto rmarkdown knitr gt gtsummary officer
+    # tinytex vem junto como dependencia do rmarkdown, mas fica declarado
+    # aqui de proposito: e ele que faz o .Rmd usar o TinyTeX em vez do
+    # texlive incompleto da distribuicao. Dependencia importante demais para
+    # depender de continuar sendo dependencia de outro pacote.
+    pacotes: quarto rmarkdown knitr gt gtsummary officer tinytex
     # O pacote R "quarto" e so um envelope: quem renderiza e o Quarto CLI,
     # instalado pelo setup-linux.sh -- que ja traz um pandoc embutido.
     #
