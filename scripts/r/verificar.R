@@ -155,6 +155,66 @@ if (!is.na(tempo)) {
   cat(sprintf("  multiplicacao 600x600: %.2fs\n", tempo))
 }
 
+# --- renderizacao (Quarto, pandoc, LaTeX) -----------------------------------
+# Checagem de ponta a ponta em vez de "o binario existe": o que quebra aqui
+# nao e a ausencia do Quarto, e um .sty faltando no meio do LaTeX -- coisa
+# que so aparece renderizando de verdade. O documento abaixo usa chunk de R,
+# grafico, tabela e acentuacao, que e onde os problemas moram.
+cat("\n== Renderizacao (HTML e PDF) ==\n")
+
+quarto_bin <- Sys.which("quarto")
+if (!nzchar(quarto_bin)) {
+  quarto_bin <- path.expand("~/.local/bin/quarto")
+  if (!file.exists(quarto_bin)) quarto_bin <- ""
+}
+
+if (!nzchar(quarto_bin)) {
+  aviso("Quarto nao encontrado -- .qmd nao renderiza")
+  cat("        rode: ./scripts/setup-linux.sh --grupo r\n")
+} else {
+  ok(sprintf("Quarto: %s", system2(quarto_bin, "--version", stdout = TRUE)[1]))
+
+  pandoc <- Sys.which("pandoc")
+  if (nzchar(pandoc)) {
+    ok(sprintf("pandoc: %s", pandoc))
+  } else {
+    aviso("pandoc fora do PATH -- .Rmd em PDF vai falhar")
+  }
+
+  dir_teste <- file.path(tempdir(), "verificar-render")
+  dir.create(dir_teste, showWarnings = FALSE, recursive = TRUE)
+  qmd <- file.path(dir_teste, "teste.qmd")
+
+  writeLines(c(
+    "---", "title: \"Verificacao\"", "lang: pt",
+    "format:", "  html: default", "  pdf: default", "---", "",
+    "```{r}", "#| warning: false", "#| fig-cap: \"grafico\"",
+    "plot(mtcars$wt, mtcars$mpg)", "```", "",
+    "```{r}", "knitr::kable(head(mtcars[, 1:3]))", "```", "",
+    "Acentuacao: acao, coracao. Matematica: $\\frac{1}{3}$."
+  ), qmd)
+
+  for (formato in c("html", "pdf")) {
+    saida <- sub("qmd$", formato, qmd)
+    # A primeira renderizacao em PDF pode baixar pacotes LaTeX sob demanda
+    # (e para isso que o TinyTeX esta ali), entao demora mais que o resto.
+    res <- tryCatch(
+      system2(quarto_bin, c("render", shQuote(qmd), "--to", formato),
+              stdout = FALSE, stderr = FALSE),
+      error = function(e) 1L
+    )
+    if (identical(as.integer(res), 0L) && file.exists(saida)) {
+      ok(sprintf("%s renderizado (%.0f KB)", toupper(formato),
+                 file.size(saida) / 1024))
+    } else {
+      aviso(sprintf("falhou ao renderizar %s", toupper(formato)))
+      if (formato == "pdf") {
+        cat("        LaTeX incompleto? rode: quarto install tinytex\n")
+      }
+    }
+  }
+}
+
 # --- resultado --------------------------------------------------------------
 cat("\n")
 if (falhou) {

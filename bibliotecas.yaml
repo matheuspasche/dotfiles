@@ -49,7 +49,10 @@ conjuntos:
     nome: Modelagem e machine learning
     minutos: 18
     requer: r-core
-    pacotes: tidymodels ranger xgboost glmnet vip DALEX
+    # Sem o vip: foi arquivado no CRAN (parou na 0.4.6) e nao instala mais em
+    # R novo -- "package 'vip' is not available for this version of R". Quem
+    # cobre importancia de variavel aqui e o DALEX, que ja estava na lista.
+    pacotes: tidymodels ranger xgboost glmnet DALEX
 
   - id: r-rcpp
     linguagem: r

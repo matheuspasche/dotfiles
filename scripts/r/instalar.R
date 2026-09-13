@@ -33,6 +33,18 @@ nucleos <- tryCatch(
 options(Ncpus = nucleos)
 cat(sprintf("==> compilando com %d nucleo(s)\n", nucleos))
 
+# --- libv8 estatico ---------------------------------------------------------
+# O pacote V8 (dependencia do gt, e portanto do gtsummary) procura a libv8 do
+# sistema e para com "fatal error: v8.h". No Fedora nao existe um "v8-devel"
+# para instalar: os nomes vem versionados (v8-13.6-devel), e o numero muda a
+# cada release -- o mesmo tipo de alvo movel que ja quebrou o JDK aqui.
+#
+# Esta variavel e a saida recomendada pelo proprio pacote: ele baixa um build
+# estatico da libv8 e compila contra ele, sem root e sem nome de versao.
+if (.Platform$OS.type == "unix") {
+  Sys.setenv(DOWNLOAD_STATIC_LIBV8 = "1")
+}
+
 # --- o que falta ------------------------------------------------------------
 instalados <- rownames(installed.packages())
 faltando <- setdiff(args, instalados)
@@ -40,6 +52,27 @@ faltando <- setdiff(args, instalados)
 if (length(faltando) == 0) {
   cat("==> todos os pacotes ja estao instalados\n")
   quit(status = 0)
+}
+
+# Pacote arquivado no CRAN falha com "package 'x' is not available for this
+# version of R" -- mensagem que costuma ser lida como erro de compilacao, e
+# manda o usuario procurar biblioteca de sistema que nao tem nada a ver. Vale
+# mais dizer na cara, e antes de comecar, que aquele nome nao existe mais.
+indisponiveis <- tryCatch({
+  setdiff(faltando, rownames(available.packages()))
+}, error = function(e) character(0))
+
+if (length(indisponiveis) > 0) {
+  cat(sprintf(paste0("==> %d pacote(s) nao existem no CRAN para o R %s",
+                     " (arquivados ou removidos): %s\n"),
+              length(indisponiveis), getRversion(),
+              paste(indisponiveis, collapse = " ")))
+  cat("    Nao adianta insistir: tire do bibliotecas.yaml ou troque por outro.\n")
+  faltando <- setdiff(faltando, indisponiveis)
+}
+
+if (length(faltando) == 0) {
+  quit(status = 1)
 }
 
 cat(sprintf("==> %d de %d pacotes a instalar: %s\n",
@@ -70,11 +103,19 @@ for (pacote in faltando) {
 
 # --- resumo -----------------------------------------------------------------
 cat("\n")
-if (length(falhas) > 0) {
-  cat(sprintf("==> %d pacote(s) falharam: %s\n",
-              length(falhas), paste(falhas, collapse = " ")))
-  cat("    Causa comum no Linux: falta a biblioteca de desenvolvimento do sistema.\n")
-  cat("    Ex.: curl precisa de libcurl-devel, xml2 precisa de libxml2-devel.\n")
+if (length(falhas) > 0 || length(indisponiveis) > 0) {
+  if (length(falhas) > 0) {
+    cat(sprintf("==> %d pacote(s) falharam ao compilar: %s\n",
+                length(falhas), paste(falhas, collapse = " ")))
+    cat("    Causa comum no Linux: falta a biblioteca de desenvolvimento do\n")
+    cat("    sistema. Procure no log a linha 'fatal error: <arquivo>.h' -- o\n")
+    cat("    nome do header diz qual -devel falta (uv.h -> libuv-devel).\n")
+    cat("    Declare a biblioteca no bibliotecas.yaml, em sistema_dnf/apt.\n")
+  }
+  if (length(indisponiveis) > 0) {
+    cat(sprintf("==> %d pacote(s) nao existem mais no CRAN: %s\n",
+                length(indisponiveis), paste(indisponiveis, collapse = " ")))
+  }
   quit(status = 1)
 }
 
