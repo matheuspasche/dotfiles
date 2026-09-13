@@ -227,17 +227,19 @@ instalar_flatpak() {
 instalar_avulsos() {
   # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
   # maquina que pediu apenas "base", nada disto e instalado.
-  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0
+  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0
   if [ -n "$GRUPO" ]; then
     [ "$GRUPO" = "python" ]     && quer_python=1
     [ "$GRUPO" = "dados" ]      && quer_dados=1
     [ "$GRUPO" = "escritorio" ] && quer_escritorio=1
     [ "$GRUPO" = "opcional" ]   && quer_opcional=1
+    [ "$GRUPO" = "editor" ]     && quer_editor=1
   else
     tem_stack python     && quer_python=1
     tem_stack dados      && quer_dados=1
     tem_stack escritorio && quer_escritorio=1
     tem_stack opcional   && quer_opcional=1
+    tem_stack editor     && quer_editor=1
   fi
 
   if [ "$quer_python" = "1" ]; then
@@ -289,8 +291,28 @@ instalar_avulsos() {
     fi
   fi
 
+  # O manifesto nao tem entrada de gerenciador que sirva para o Claude Code
+  # (CLI): nao ha pacote no dnf/apt, e ainda nao foi confirmado se existe
+  # formula/pacote no brew, winget ou scoop -- por isso o id "claude-code"
+  # no pacotes.yaml fica com tudo "-", so para documentar que o kit cuida
+  # dele, e o Linux e resolvido aqui, igual ao uv.
+  if [ "$quer_editor" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o Claude Code (CLI)"
+    elif command -v claude >/dev/null 2>&1; then
+      ok "Claude Code (CLI) ja instalado"
+    else
+      # Instalador oficial da Anthropic; nao depende de npm/Node, embora o
+      # stack "editor" ja traga os dois para a extensao do VS Code.
+      info "instalando Claude Code (CLI)"
+      curl -fsSL https://claude.ai/install.sh | bash ||
+        aviso "nao consegui instalar o Claude Code -- instale manualmente: https://docs.claude.com/en/docs/claude-code/setup"
+    fi
+  fi
+
   [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&
     [ "$quer_escritorio" = "0" ] && [ "$quer_opcional" = "0" ] &&
+    [ "$quer_editor" = "0" ] &&
     ok "nenhuma ferramenta avulsa pedida"
   return 0
 }
