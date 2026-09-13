@@ -72,15 +72,6 @@ pacotes:
     winget: cURL.cURL
     scoop: curl
 
-  - id: gnome-system-monitor
-    nome: Monitor do Sistema
-    grupo: base
-    dnf: gnome-system-monitor
-    apt: gnome-system-monitor
-    brew: "-"
-    winget: "-"
-    scoop: "-"
-
   - id: windows-terminal
     nome: Windows Terminal
     grupo: base
@@ -365,15 +356,31 @@ pacotes:
     scoop: "-"
 
   - id: kde-utils
-    nome: Utilitarios do KDE (Kate, Spectacle, Filelight)
+    nome: Utilitarios do KDE (Kate, Spectacle, Filelight, Monitor do Sistema)
     grupo: produtividade
     # Equivalentes de PowerToys no KDE: o proprio KWin ja faz tiling, e o
     # KRunner cobre o PowerToys Run. Estes completam o basico.
-    dnf: kate spectacle filelight kcalc
-    apt: kate kde-spectacle filelight kcalc
+    #
+    # plasma-systemmonitor e o "Monitor do Sistema" do KDE, e o Fedora KDE ja
+    # o traz -- fica aqui para a instalacao em desktop que nao tenha. Nao se
+    # usa gnome-system-monitor no lugar: ele arrasta a pilha GTK/GNOME inteira
+    # para uma maquina KDE, para entregar a mesma janela.
+    dnf: kate spectacle filelight kcalc plasma-systemmonitor
+    apt: kate kde-spectacle filelight kcalc plasma-systemmonitor
     brew: "-"
     winget: "-"
     scoop: "-"
+
+  - id: btop
+    nome: btop (monitor de recursos no terminal)
+    grupo: produtividade
+    # Complementa o monitor grafico: 1 MiB, sem dependencia de desktop, entao
+    # serve tambem em WSL e em maquina sem interface.
+    dnf: btop
+    apt: btop
+    brew: btop
+    winget: btop.btop
+    scoop: btop
 
   - id: flameshot
     nome: Flameshot (captura de tela com anotacao)

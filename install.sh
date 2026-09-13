@@ -12,7 +12,7 @@
 #   ./install.sh --apenas r       so as configuracoes de R (Makevars, Rprofile)
 #   ./install.sh --apenas "git r" mais de uma area, entre aspas
 #
-# Areas: git | vscode | r
+# Areas: git | vscode | r | kde
 #
 # O --apenas existe para a maquina que nao e sua: numa maquina de trabalho
 # voce quer o Makevars (sem ele os pacotes de R compilam errado) sem que o
@@ -33,12 +33,13 @@ EXTENSOES=0
 # maquina que nao pediu o stack "dev", nem settings do VS Code sem o stack
 # "editor", nem Makevars sem o stack "r". Sem perfil nenhum, aplica todas --
 # quem roda o install.sh cru esta pedindo o kit inteiro.
-AREAS_VALIDAS="git vscode r"
+AREAS_VALIDAS="git vscode r kde"
 AREAS=""
 if [ "${PERFIL_CARREGADO:-0}" = "1" ]; then
   case " ${STACKS:-} " in *" dev "*)    AREAS="$AREAS git" ;; esac
   case " ${STACKS:-} " in *" editor "*) AREAS="$AREAS vscode" ;; esac
   case " ${STACKS:-} " in *" r "*)      AREAS="$AREAS r" ;; esac
+  case " ${STACKS:-} " in *" produtividade "*) AREAS="$AREAS kde" ;; esac
   AREAS="${AREAS# }"
 else
   AREAS="$AREAS_VALIDAS"
@@ -186,6 +187,35 @@ if [ -f "$DOTFILES_RAIZ/config/Rprofile" ]; then
 fi
 
 fi  # quer_area r
+
+# ------------------------------------------------------------------ KDE ----
+
+if quer_area kde; then
+
+# Ctrl+Alt+Del abre o Monitor do Sistema, como no Windows.
+#
+# No KDE o padrao desse atalho e a tela de encerrar sessao. Mas quem aperta
+# Ctrl+Alt+Del quase sempre quer ver o que travou a maquina, nao deslogar --
+# e a tela de sessao continua acessivel pelo menu. O par de linhas mexe nas
+# duas pontas: tira o atalho do logout e o da ao monitor.
+#
+# plasma-systemmonitor, e nao gnome-system-monitor: o do GNOME arrasta a
+# pilha GTK inteira para uma maquina KDE para entregar a mesma janela.
+if [ "$OS" != "linux" ] && [ "$OS" != "wsl" ]; then
+  :
+elif ! command -v kwriteconfig6 >/dev/null 2>&1; then
+  ok "sem KDE Plasma 6 aqui -- atalho do Monitor do Sistema pulado"
+elif [ "$SIMULAR" = "1" ]; then
+  info "[simular] Ctrl+Alt+Del -> Monitor do Sistema (kglobalshortcutsrc)"
+else
+  kwriteconfig6 --file kglobalshortcutsrc     --group "services" --group "org.kde.plasma-systemmonitor.desktop"     --key "_launch" "Ctrl+Alt+Del"
+  # O formato e "atual,padrao,descricao": "none" no primeiro campo desliga o
+  # atalho sem perder qual era o padrao do KDE.
+  kwriteconfig6 --file kglobalshortcutsrc     --group "ksmserver" --key "Log Out"     "none,Ctrl+Alt+Del,Mostrar tela para encerrar sessao"
+  ok "Ctrl+Alt+Del -> Monitor do Sistema (vale no proximo login)"
+fi
+
+fi  # quer_area kde
 
 # ------------------------------------------------------- extensoes VS Code --
 
