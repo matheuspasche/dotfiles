@@ -678,6 +678,94 @@ instalar_do_manifesto() {
   return 0
 }
 
+# resolver_ffmpeg32 -- as libs de ffmpeg de 32 bits que casam com esta maquina.
+#
+#   O Steam e um binario de 32 bits e precisa de libavcodec.so.62 e companhia
+#   em 32 bits; sem elas abre reclamando "You are missing the following 32-bit
+#   libraries". O pacote steam nao as traz como dependencia.
+#
+#   Existem DUAS familias dessas libs e elas se excluem: a do Fedora
+#   (libavcodec-free e afins) e a do RPM Fusion (ffmpeg-libs). Pedir a do RPM
+#   Fusion numa maquina que tem a do Fedora falha com "libswscale-free entra em
+#   conflito" e, como o dnf resolve tudo numa transacao so, derruba junto o
+#   grupo inteiro. Aconteceu num Fedora recem-instalado, que ainda nao tinha
+#   passado pelo "dnf swap ffmpeg-free ffmpeg" do fedora-pos-instalacao.sh.
+#
+#   Por isso a familia e escolhida pela que ja esta na maquina, nao fixada.
+resolver_ffmpeg32() {
+  if rpm -q ffmpeg-libs >/dev/null 2>&1; then
+    printf '%s\n' ffmpeg-libs.i686
+  else
+    printf '%s\n' libavcodec-free.i686 libavutil-free.i686 libavformat-free.i686 \
+                  libswscale-free.i686 libswresample-free.i686 libavfilter-free.i686
+  fi
+}
+
+# instalar_ffmpeg32 -- instala essas libs em transacao PROPRIA.
+#   Separada de proposito: se ainda assim houver conflito, o prejuizo fica no
+#   Steam em vez de levar junto lutris, gamemode e o resto do grupo.
+instalar_ffmpeg32() {
+  local -a pacotes=()
+  local p
+
+  # No apt isso exigiria "dpkg --add-architecture i386" antes, que o kit nao faz.
+  [ "$GER" = "dnf" ] || return 0
+
+  while IFS= read -r p; do
+    [ -n "$p" ] && pacotes+=("$p")
+  done < <(resolver_ffmpeg32)
+
+  info "libs de 32 bits do Steam: ${pacotes[*]}"
+  if sudo dnf install -y "${pacotes[@]}"; then
+    return 0
+  fi
+
+  # A familia -free do Fedora nao tem saida em 32 bits quando o openh264 da
+  # Cisco esta instalado (o padrao no Fedora): libavcodec-free.i686 exige
+  # libopenh264.so.8, e a Cisco so publica openh264 em 64 bits -- sobra o
+  # stub noopenh264.i686, que o openh264 instalado obsoleta. Quem resolve e
+  # a troca para o ffmpeg do RPM Fusion, que tem as duas arquiteturas.
+  #
+  # Essa troca e decisao de sistema (mexe nos codecs de tudo), ja tem dono e
+  # pergunta propria no fedora-pos-instalacao.sh. Entao aqui se avisa, em vez
+  # de fazer pelas costas.
+  aviso "nao consegui instalar as libs de 32 bits do Steam."
+  echo "    O Steam vai abrir reclamando de bibliotecas ausentes (libavcodec.so.62"
+  echo "    e afins) e video na loja pode nao funcionar. Os jogos costumam rodar."
+  echo
+  echo "    Para resolver, troque para o ffmpeg do RPM Fusion e rode isto de novo:"
+  echo "      ./scripts/fedora-pos-instalacao.sh    (passo de codecs)"
+  echo "      ./scripts/setup-linux.sh --grupo jogos"
+  return 0
+}
+
+# avisar_jogos -- diz o que o Linux NAO vai rodar, antes de o usuario descobrir
+#   sozinho no meio de uma partida.
+#
+#   Nao e pessimismo: a maioria esmagadora do catalogo roda por Proton, e em
+#   GPU AMD costuma rodar bem. O que trava e uma coisa so -- anticheat que
+#   exige modulo de kernel, e cujo fabricante escolheu nao permitir Linux. Nao
+#   ha ajuste, driver ou Proton que resolva: e decisao do editor do jogo.
+avisar_jogos() {
+  echo
+  aviso "jogos com anticheat de kernel NAO rodam no Linux, por decisao do editor:"
+  echo "    Fortnite, Valorant, League of Legends, Roblox, GTA V e VI,"
+  echo "    EA SPORTS FC, Apex Legends, Destiny 2, Rainbow Six Siege,"
+  echo "    Call of Duty, PUBG, Rust, Delta Force."
+  echo
+  echo "    Rodam normalmente: Counter-Strike 2, Elden Ring, Overwatch 2,"
+  echo "    Dead by Daylight, Marvel Rivals, Genshin Impact e a maior parte"
+  echo "    do catalogo de um jogador so."
+  echo
+  echo "    Confira um titulo antes de comprar:"
+  echo "      https://protondb.com          -- relatos de quem jogou"
+  echo "      https://areweanticheatyet.com -- situacao do anticheat"
+  echo
+  echo "    No Steam: Configuracoes > Compatibilidade > ligar o Proton para"
+  echo "    todos os titulos. Sem isso a loja esconde os jogos de Windows."
+  return 0
+}
+
 # expor_pandoc -- deixa o pandoc do Quarto visivel no PATH.
 #
 #   O rmarkdown (.Rmd sem Quarto) chama o pandoc do sistema e para com
@@ -860,8 +948,9 @@ instalar_avulsos() {
   # A Epic nao publica launcher para Linux -- quem faz esse papel e o Heroic.
   if [ "$quer_jogos" = "1" ]; then
     if [ "$SIMULAR" = "1" ]; then
-      info "[simular] instalaria Heroic e ProtonUp-Qt via Flatpak"
+      info "[simular] instalaria as libs de 32 bits ($(resolver_ffmpeg32 | tr '\n' ' ')), Heroic e ProtonUp-Qt"
     else
+      instalar_ffmpeg32
       instalar_do_manifesto heroic
       instalar_do_manifesto protonup
       avisar_jogos
@@ -1004,7 +1093,7 @@ pos_instalacao() {
         aviso "nao consegui habilitar o servico docker"
       # Sem isso, todo comando docker exige sudo.
       if ! id -nG | tr ' ' '\n' | grep -qx docker; then
-        sudo usermod -aG docker "$USER"
+        sudo usermod -aG docker "${USER:-$(id -un)}"
         aviso "adicionado ao grupo docker -- faca logout/login para valer"
       fi
     fi
@@ -1021,7 +1110,7 @@ pos_instalacao() {
       info "[simular] adicionaria o usuario ao grupo gamemode"
     elif getent group gamemode >/dev/null 2>&1; then
       if ! id -nG | tr ' ' '\n' | grep -qx gamemode; then
-        sudo usermod -aG gamemode "$USER" &&
+        sudo usermod -aG gamemode "${USER:-$(id -un)}" &&
           aviso "adicionado ao grupo gamemode -- faca logout/login para valer" ||
           aviso "nao consegui adicionar ao grupo gamemode; o GameMode nao vai mudar o governor"
       else

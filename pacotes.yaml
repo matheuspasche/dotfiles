@@ -72,6 +72,15 @@ pacotes:
     winget: cURL.cURL
     scoop: curl
 
+  - id: btop
+    nome: btop
+    grupo: base
+    dnf: btop
+    apt: btop
+    brew: btop
+    winget: btop.btop
+    scoop: btop
+
   - id: windows-terminal
     nome: Windows Terminal
     grupo: base
@@ -159,11 +168,10 @@ pacotes:
     # Custa o RPM Fusion nonfree, mas so para quem pedir o grupo "jogos":
     # e o que a chave repo abaixo garante.
     repo: rpmfusion-nonfree
-    # ffmpeg-libs.i686 nao vem como dependencia do steam, e sem ele o cliente
-    # abre reclamando "You are missing the following 32-bit libraries"
-    # (libavcodec.so.62 e companhia) -- o Steam e um binario de 32 bits e
-    # precisa da versao de 32 bits dessas libs, nao da de 64.
-    dnf: steam ffmpeg-libs.i686
+    # As libs de ffmpeg de 32 bits que o Steam exige NAO entram aqui: existem
+    # duas familias delas e a certa depende da maquina, entao quem resolve e
+    # o instalar_ffmpeg32 do setup-linux.sh, em transacao separada.
+    dnf: steam
     # No Debian o steam vive em non-free e no Ubuntu em multiverse; o kit nao
     # habilita nenhum dos dois (no Ubuntu desktop o multiverse ja vem ligado).
     # As libs de 32 bits la exigiriam "dpkg --add-architecture i386" antes, o

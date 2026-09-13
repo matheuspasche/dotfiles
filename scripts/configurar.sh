@@ -80,18 +80,8 @@ perguntar_lista() {
   printf '%s' "${saida# }"
 }
 
-# --------------------------------------------------------------- identidade --
-info "1. Identidade do Git"
-echo "   Usada para assinar seus commits."
-NOVO_GIT_NOME="$(perguntar_texto '   Seu nome' "$GIT_NOME")"
-echo
-echo "   Dica: no GitHub, Settings > Emails > Keep my email addresses private"
-echo "   da um endereco <id>+<usuario>@users.noreply.github.com. Usando ele,"
-echo "   seu e-mail real nao aparece em commit publico nenhum."
-NOVO_GIT_EMAIL="$(perguntar_texto '   Seu e-mail' "$GIT_EMAIL")"
-
 # ------------------------------------------------------------------ stacks ---
-NOVO_STACKS="$(perguntar_lista '2. Que stacks voce usa?' "$STACKS" \
+NOVO_STACKS="$(perguntar_lista '1. Que stacks voce usa?' "$STACKS" \
   "base:curl e terminal -- o minimo de QUALQUER maquina" \
   "pessoal:Spotify, WhatsApp, VLC" \
   "jogos:Steam, Heroic (Epic), Lutris, Proton e ferramentas" \
@@ -105,6 +95,29 @@ NOVO_STACKS="$(perguntar_lista '2. Que stacks voce usa?' "$STACKS" \
   "dados:DBeaver, DuckDB" \
   "jvm:JDK (requisito do Spark)" \
   "container:Docker")"
+
+# --------------------------------------------------------------- identidade --
+# Perguntado DEPOIS dos stacks, e so para quem marcou "dev". Git nao esta em
+# "base": numa maquina de uso comum ele nao entra, e nao faz sentido a
+# primeira pergunta do assistente ser o e-mail do GitHub de quem so quer
+# navegador e LibreOffice.
+NOVO_GIT_NOME="$GIT_NOME"
+NOVO_GIT_EMAIL="$GIT_EMAIL"
+case " $NOVO_STACKS " in
+  *" dev "*)
+    info "2. Identidade do Git"
+    echo "   Usada para assinar seus commits."
+    NOVO_GIT_NOME="$(perguntar_texto '   Seu nome' "$GIT_NOME")"
+    echo
+    echo "   Dica: no GitHub, Settings > Emails > Keep my email addresses private"
+    echo "   da um endereco <id>+<usuario>@users.noreply.github.com. Usando ele,"
+    echo "   seu e-mail real nao aparece em commit publico nenhum."
+    NOVO_GIT_EMAIL="$(perguntar_texto '   Seu e-mail' "$GIT_EMAIL")"
+    ;;
+  *)
+    info "2. Identidade do Git -- pulado (stack dev nao selecionado)"
+    ;;
+esac
 
 # ------------------------------------------------------------- bibliotecas ---
 NOVO_LIBS_R=""
@@ -157,13 +170,24 @@ case "$NOVO_NAVEGADOR" in
 esac
 
 # --------------------------------------------------------------- extensoes ---
-NOVO_VSCODE="$(perguntar_lista '6. Extensoes do VS Code' "$VSCODE_EXTENSOES" \
-  "base:Claude Code, GitLens, EditorConfig" \
-  "python:Pylance, Jupyter, Ruff" \
-  "r:extensao do R e depurador" \
-  "dados:SQLTools, CSV, visualizador de planilha" \
-  "container:Docker, Remote-WSL, Dev Containers" \
-  "escrita:Markdown, Quarto")"
+# Mesma logica da identidade: sem o stack "editor" nao ha VS Code na maquina,
+# entao perguntar quais extensoes instalar nele e pedir uma resposta que nao
+# vai ser usada.
+NOVO_VSCODE="$VSCODE_EXTENSOES"
+case " $NOVO_STACKS " in
+  *" editor "*)
+    NOVO_VSCODE="$(perguntar_lista '6. Extensoes do VS Code' "$VSCODE_EXTENSOES" \
+      "base:Claude Code, GitLens, EditorConfig" \
+      "python:Pylance, Jupyter, Ruff" \
+      "r:extensao do R e depurador" \
+      "dados:SQLTools, CSV, visualizador de planilha" \
+      "container:Docker, Remote-WSL, Dev Containers" \
+      "escrita:Markdown, Quarto")"
+    ;;
+  *)
+    info "6. Extensoes do VS Code -- pulado (stack editor nao selecionado)"
+    ;;
+esac
 
 # ------------------------------------------------------------------ Fedora ---
 NOVO_FEDORA_RPMFUSION="$FEDORA_RPMFUSION"
