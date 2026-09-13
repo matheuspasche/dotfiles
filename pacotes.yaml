@@ -21,6 +21,14 @@
 #     vai instalar de fato. Assim "--grupo r" numa maquina de trabalho nao sai
 #     acrescentando repositorio de VS Code e de Docker que ninguem pediu.
 #     Ids conhecidos: vscode | docker | google-chrome | brave
+#   - flatpak: <app-id> -- id no Flathub, para os "linux: avulso" que vem de
+#     la. Fica no manifesto, e nao espalhado pelo script, pela mesma razao que
+#     os outros: um lugar so para olhar e para mudar.
+#   - apelido / apelido_icone -- renomeia o atalho do menu. Serve para os
+#     programas que fazem o PAPEL de outro no Linux: o ZapZap e o WhatsApp, o
+#     Heroic e a Epic. Sem isso a pessoa procura "WhatsApp" no menu e nao
+#     acha, porque o atalho se chama "ZapZap". O icone e procurado nos temas
+#     instalados e, se nao houver, em config/icones/<apelido_icone>.svg.
 #   - winget_fonte: <fonte> -- fonte alternativa do winget (hoje so "msstore",
 #     a Microsoft Store). Sem esta chave, usa-se a fonte padrao.
 #   - linux: avulso | nao -- obrigatorio quando dnf E apt sao "-", pois o
@@ -92,6 +100,7 @@ pacotes:
     grupo: pessoal
     # No Linux vem do Flathub, que e por onde o proprio Spotify distribui
     # para desktop Linux -- nao ha pacote dnf/apt oficial.
+    flatpak: com.spotify.Client
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -112,6 +121,9 @@ pacotes:
     # Store, que e outra FONTE do winget -- por isso o winget_fonte abaixo.
     # Sem ele o winget procura so na fonte padrao e responde "nenhum pacote
     # encontrado" para este id.
+    flatpak: com.rtosta.zapzap
+    apelido: WhatsApp
+    apelido_icone: whatsapp
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -140,6 +152,7 @@ pacotes:
     # No Fedora o pacote dnf exige o RPM Fusion nonfree; o Flatpak nao exige
     # nada e ainda traz o proprio runtime de 32 bits, que e do que a maioria
     # dos jogos precisa. Por isso Flatpak aqui.
+    flatpak: com.valvesoftware.Steam
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -154,6 +167,9 @@ pacotes:
     # A Epic nao publica launcher para Linux. O Heroic e o cliente que a
     # comunidade usa no lugar: faz login na conta Epic, baixa os jogos e roda
     # por Proton. E tambem o caminho para GOG e Amazon Games.
+    flatpak: com.heroicgameslauncher.hgl
+    apelido: Epic Games
+    apelido_icone: epic-games
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -212,6 +228,7 @@ pacotes:
   - id: protonup
     nome: ProtonUp-Qt (instala versoes do Proton-GE)
     grupo: jogos
+    flatpak: net.davidotek.pupgui2
     # O Proton da Valve nao cobre tudo; o Proton-GE e a versao da comunidade
     # que costuma fazer rodar o que o oficial nao faz. Isto instala e atualiza
     # essas versoes sem precisar copiar pasta na mao.
@@ -281,6 +298,7 @@ pacotes:
     nome: ONLYOFFICE Desktop Editors
     grupo: escritorio
     # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
+    flatpak: org.onlyoffice.desktopeditors
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -353,6 +371,7 @@ pacotes:
     nome: Obsidian
     grupo: opcional
     # No Linux vem por Flatpak; o setup-linux.sh cuida disso.
+    flatpak: md.obsidian.Obsidian
     linux: avulso
     dnf: "-"
     apt: "-"
@@ -561,6 +580,7 @@ pacotes:
   - id: dbeaver
     nome: DBeaver Community
     grupo: dados
+    flatpak: io.dbeaver.DBeaverCommunity
     linux: avulso
     dnf: "-"
     apt: "-"

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Marca da Epic Games redesenhada para uso local como icone de atalho.
+  Nao e o arquivo oficial da Epic: e um "E" geometrico equivalente, feito
+  aqui, para que o lancador que faz o papel da Epic no Linux (Heroic) seja
+  reconhecivel no menu. Epic Games e marca da Epic Games, Inc.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="56" fill="#2a2a2a"/>
+  <path fill="#ffffff" d="
+    M 78 52
+    h 100
+    v 30
+    h -66
+    v 29
+    h 58
+    v 30
+    h -58
+    v 33
+    h 68
+    v 30
+    h -102
+    a 12 12 0 0 1 -12 -12
+    V 64
+    a 12 12 0 0 1 12 -12
+    z"/>
+</svg>

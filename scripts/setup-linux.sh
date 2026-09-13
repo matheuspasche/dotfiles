@@ -568,58 +568,72 @@ instalar_quarto() {
   return 0
 }
 
-# instalar_whatsapp -- ZapZap do Flathub, aparecendo como "WhatsApp".
+# apelidar_atalho <flatpak-id> <nome> <icone>
+#   Reescreve o atalho do menu de um programa que faz o PAPEL de outro.
 #
-#   A Meta nao publica cliente de desktop para Linux. O que existe no Flathub
-#   sao wrappers de terceiros em volta do WhatsApp Web; o ZapZap e o mais
-#   ativo deles. Isso esta dito aqui e no pacotes.yaml de proposito: instalar
-#   um wrapper e confiar suas mensagens a um empacotador independente, e quem
-#   ler este repo daqui a um ano merece saber disso sem ter que descobrir.
+#   Alguns programas do manifesto sao substitutos: no Linux o ZapZap faz o
+#   papel do WhatsApp e o Heroic faz o papel da Epic, porque nem a Meta nem a
+#   Epic publicam cliente para Linux. Quem instalou sabe disso; quem so vai
+#   USAR a maquina, nao -- e procura "WhatsApp" no menu, nao "ZapZap".
 #
-#   O atalho vem com o nome "ZapZap" e um icone cinza, o que faz ninguem
-#   achar o programa procurando por "WhatsApp" no menu. A funcao escreve um
-#   .desktop em ~/.local/share/applications, que tem precedencia sobre o do
-#   Flatpak, so trocando nome e icone -- o Exec continua sendo o do ZapZap.
-instalar_whatsapp() {
-  local origem destino icone alvo_icone
-  local app=com.rtosta.zapzap
+#   O arquivo vai para ~/.local/share/applications, que tem precedencia sobre
+#   o do Flatpak. So nome e icone mudam: o Exec continua apontando para o
+#   programa real, e o original segue instalado com o nome dele.
+apelidar_atalho() {
+  local app="$1" nome="$2" icone="$3"
+  local origem="" destino icone_achado alvo d
 
-  instalar_flatpak "$app" "WhatsApp (ZapZap)"
-
-  # Se o Flatpak nao entrou, nao ha atalho para renomear.
-  flatpak list --app --columns=application 2>/dev/null | grep -qx "$app" || return 0
-
-  origem=""
+  # Serve tanto para Flatpak quanto para pacote da distribuicao: o RStudio,
+  # por exemplo, vem de .rpm e tambem quer icone melhor.
   for d in /var/lib/flatpak/exports/share/applications \
-           "$HOME/.local/share/flatpak/exports/share/applications"; do
+           "$HOME/.local/share/flatpak/exports/share/applications" \
+           /usr/share/applications \
+           /usr/local/share/applications; do
     [ -f "$d/$app.desktop" ] && { origem="$d/$app.desktop"; break; }
   done
   [ -z "$origem" ] && return 0
 
-  # Icone: procurado entre os temas ja instalados, nunca baixado. Se a maquina
-  # nao tiver nenhum icone de WhatsApp, fica o do ZapZap mesmo -- melhor que
-  # buscar logo de terceiro num endereco qualquer.
-  icone="$(find /usr/share/icons "$HOME/.local/share/icons" \
-                /var/lib/flatpak/exports/share/icons \
-                -iname 'whatsapp.svg' -o -iname 'whatsapp.png' 2>/dev/null | head -1)"
+  # Icone: primeiro entre os temas ja instalados na maquina; depois o que o
+  # proprio kit versiona. Nunca baixado de um endereco qualquer -- marca de
+  # terceiro nao se puxa de CDN aleatoria no meio de um script de setup.
+  #
+  # SVG antes de PNG, em duas buscas separadas e nao num -o so: e comum o
+  # proprio programa ja ter deixado um PNG pequeno no hicolor (o RStudio
+  # deixa um de 16x16), e uma busca unica pegaria justamente ele em vez do
+  # vetor bonito do tema.
+  icone_achado="$(find /usr/share/icons "$HOME/.local/share/icons" \
+                       /var/lib/flatpak/exports/share/icons \
+                       -iname "$icone.svg" 2>/dev/null | head -1)"
+  [ -z "$icone_achado" ] && icone_achado="$(find /usr/share/icons "$HOME/.local/share/icons" \
+                       /var/lib/flatpak/exports/share/icons \
+                       -iname "$icone.png" 2>/dev/null | head -1)"
+  [ -z "$icone_achado" ] && [ -f "$DOTFILES_RAIZ/config/icones/$icone.svg" ] &&
+    icone_achado="$DOTFILES_RAIZ/config/icones/$icone.svg"
 
   destino="$HOME/.local/share/applications/$app.desktop"
   mkdir -p "$(dirname "$destino")"
 
-  if [ -n "$icone" ]; then
-    # Copiado para hicolor porque e o tema que todo os outros herdam: assim o
-    # icone aparece independente do tema que o usuario estiver usando.
-    alvo_icone="$HOME/.local/share/icons/hicolor/scalable/apps/whatsapp-zapzap.${icone##*.}"
-    mkdir -p "$(dirname "$alvo_icone")"
-    cp -f "$icone" "$alvo_icone"
-    # Name[xx]= traduzidos sao APAGADOS, nao convertidos: transformar cada um
-    # em "Name=" produziria chave repetida, que torna o .desktop invalido.
-    sed -e 's/^Name=.*/Name=WhatsApp/' \
-        -e '/^Name\[/d' \
-        -e 's/^Icon=.*/Icon=whatsapp-zapzap/' "$origem" > "$destino"
+  if [ -n "$icone_achado" ]; then
+    # Copiado para hicolor, que e o tema que todos os outros herdam: assim o
+    # icone aparece qualquer que seja o tema em uso.
+    alvo="$HOME/.local/share/icons/hicolor/scalable/apps/apelido-$icone.${icone_achado##*.}"
+    mkdir -p "$(dirname "$alvo")"
+    cp -f "$icone_achado" "$alvo"
+    # Name[xx]= traduzidos sao APAGADOS, nao convertidos: virar "Name=" em
+    # cada um produziria chave repetida, que invalida o .desktop.
+    if [ -n "$nome" ]; then
+      sed -e "s/^Name=.*/Name=$nome/" -e '/^Name\[/d' \
+          -e "s/^Icon=.*/Icon=apelido-$icone/" "$origem" > "$destino"
+    else
+      # Nome vazio = so o icone muda; e o caso de quem ja se chama certo e so
+      # tem icone feio, como o RStudio.
+      sed -e "s/^Icon=.*/Icon=apelido-$icone/" "$origem" > "$destino"
+    fi
+  elif [ -n "$nome" ]; then
+    aviso "sem icone \"$icone\" -- $nome fica com o icone original"
+    sed -e "s/^Name=.*/Name=$nome/" -e '/^Name\[/d' "$origem" > "$destino"
   else
-    aviso "sem icone de WhatsApp nos temas instalados -- mantendo o do ZapZap"
-    sed -e 's/^Name=.*/Name=WhatsApp/' -e '/^Name\[/d' "$origem" > "$destino"
+    return 0
   fi
 
   command -v update-desktop-database >/dev/null 2>&1 &&
@@ -627,34 +641,28 @@ instalar_whatsapp() {
   command -v gtk-update-icon-cache >/dev/null 2>&1 &&
     gtk-update-icon-cache -q "$HOME/.local/share/icons/hicolor" 2>/dev/null
 
-  ok "WhatsApp (ZapZap) no menu como \"WhatsApp\""
+  ok "no menu como \"${nome:-$(grep -m1 '^Name=' "$destino" | cut -d= -f2-)}\""
   return 0
 }
 
-# avisar_jogos -- diz o que o Linux NAO vai rodar, antes de o usuario descobrir
-#   sozinho no meio de uma partida.
-#
-#   Nao e pessimismo: a maioria esmagadora do catalogo roda por Proton, e em
-#   GPU AMD costuma rodar bem. O que trava e uma coisa so -- anticheat que
-#   exige modulo de kernel, e cujo fabricante escolheu nao permitir Linux. Nao
-#   ha ajuste, driver ou Proton que resolva: e decisao do editor do jogo.
-avisar_jogos() {
-  echo
-  aviso "jogos com anticheat de kernel NAO rodam no Linux, por decisao do editor:"
-  echo "    Fortnite, Valorant, League of Legends, Roblox, GTA V e VI,"
-  echo "    EA SPORTS FC, Apex Legends, Destiny 2, Rainbow Six Siege,"
-  echo "    Call of Duty, PUBG, Rust, Delta Force."
-  echo
-  echo "    Rodam normalmente: Counter-Strike 2, Elden Ring, Overwatch 2,"
-  echo "    Dead by Daylight, Marvel Rivals, Genshin Impact e a maior parte"
-  echo "    do catalogo de um jogador so."
-  echo
-  echo "    Confira um titulo antes de comprar:"
-  echo "      https://protondb.com          -- relatos de quem jogou"
-  echo "      https://areweanticheatyet.com -- situacao do anticheat"
-  echo
-  echo "    No Steam: Configuracoes > Compatibilidade > ligar o Proton para"
-  echo "    todos os titulos. Sem isso a loja esconde os jogos de Windows."
+# instalar_do_manifesto <id> -- instala pelo Flathub o que o manifesto mandar,
+#   e aplica o apelido quando houver. Assim o id do Flatpak e o apelido moram
+#   no pacotes.yaml, nao espalhados por dentro deste script.
+instalar_do_manifesto() {
+  local id="$1" app nome apelido icone
+
+  app="$(manifesto_valor "$id" flatpak)"
+  [ -z "$app" ] && { aviso "pacote \"$id\" nao declara flatpak no manifesto"; return 0; }
+  nome="$(manifesto_valor "$id" nome)"
+
+  instalar_flatpak "$app" "${nome:-$id}"
+  flatpak list --app --columns=application 2>/dev/null | grep -qx "$app" || return 0
+
+  apelido="$(manifesto_valor "$id" apelido)"
+  if [ -n "$apelido" ]; then
+    icone="$(manifesto_valor "$id" apelido_icone)"
+    apelidar_atalho "$app" "$apelido" "${icone:-$id}"
+  fi
   return 0
 }
 
@@ -773,6 +781,11 @@ instalar_rstudio() {
 
   instalar_pacote_baixado "$url" "RStudio Desktop (arquivo grande)" ||
     aviso "instale manualmente: https://posit.co/download/rstudio-desktop/"
+
+  # O .rpm da Posit so traz PNG (o maior tem 256px), que fica serrilhado em
+  # tela HiDPI e destoa do resto do menu. Se houver um vetor nos temas
+  # instalados, usa o vetor.
+  apelidar_atalho rstudio "" rstudio
   return 0
 }
 
@@ -826,8 +839,8 @@ instalar_avulsos() {
     if [ "$SIMULAR" = "1" ]; then
       info "[simular] instalaria o Spotify e o WhatsApp (ZapZap) via Flatpak"
     else
-      instalar_flatpak com.spotify.Client "Spotify"
-      instalar_whatsapp
+      instalar_do_manifesto spotify
+      instalar_do_manifesto whatsapp
     fi
   fi
 
@@ -839,9 +852,9 @@ instalar_avulsos() {
     if [ "$SIMULAR" = "1" ]; then
       info "[simular] instalaria Steam, Heroic e ProtonUp-Qt via Flatpak"
     else
-      instalar_flatpak com.valvesoftware.Steam "Steam"
-      instalar_flatpak com.heroicgameslauncher.hgl "Heroic (Epic, GOG, Amazon)"
-      instalar_flatpak net.davidotek.pupgui2 "ProtonUp-Qt"
+      instalar_do_manifesto steam
+      instalar_do_manifesto heroic
+      instalar_do_manifesto protonup
       avisar_jogos
     fi
   fi
@@ -873,7 +886,7 @@ instalar_avulsos() {
       fi
 
       # DBeaver via Flatpak: evita conflito de versao de JDK com o Spark.
-      instalar_flatpak io.dbeaver.DBeaverCommunity "DBeaver"
+      instalar_do_manifesto dbeaver
     fi
   fi
 
@@ -885,7 +898,7 @@ instalar_avulsos() {
     if [ "$SIMULAR" = "1" ]; then
       info "[simular] instalaria o ONLYOFFICE"
     else
-      instalar_flatpak org.onlyoffice.desktopeditors "ONLYOFFICE"
+      instalar_do_manifesto onlyoffice
     fi
   fi
 
@@ -893,7 +906,7 @@ instalar_avulsos() {
     if [ "$SIMULAR" = "1" ]; then
       info "[simular] instalaria o Obsidian"
     else
-      instalar_flatpak md.obsidian.Obsidian "Obsidian"
+      instalar_do_manifesto obsidian
     fi
   fi
 
