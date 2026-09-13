@@ -128,7 +128,10 @@ garantir_libs_sistema() {
     for p in $(conjunto_valor "$id" "$chave"); do
       case " $faltando " in *" $p "*) continue ;; esac
       if [ "$GER" = "dnf" ]; then
-        rpm -q "$p" >/dev/null 2>&1 && continue
+        # --whatprovides, e nao "rpm -q": no Fedora varios nomes sao virtuais
+        # (nodejs e fornecido por nodejs22), e perguntar pelo nome do pacote
+        # daria "ausente" para algo que esta instalado.
+        rpm -q --whatprovides "$p" >/dev/null 2>&1 && continue
       else
         dpkg -s "$p" >/dev/null 2>&1 && continue
       fi
