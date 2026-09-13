@@ -198,23 +198,32 @@ resolver_java() {
   return 0
 }
 
+# grupos_pedidos -- imprime, um por linha, os grupos que este run deve tratar.
+#   --grupo manda: instala exatamente aquele grupo. Sem ele, obedece o STACKS
+#   do perfil. NUNCA "tudo": instalar R, Python e Docker numa maquina que so
+#   precisa de navegador nao e util para ninguem.
+grupos_pedidos() {
+  local -a grupos=()
+  if [ -n "$GRUPO" ]; then
+    grupos=("$GRUPO")
+  else
+    read -r -a grupos <<< "$STACKS"
+  fi
+  [ "${#grupos[@]}" -gt 0 ] && printf '%s\n' "${grupos[@]}"
+  return 0
+}
+
 instalar_pacotes() {
   local -a lista=()
   local -a grupos=()
+  local g pkg
 
-  if [ -n "$GRUPO" ]; then
-    # --grupo manda: instala exatamente aquele grupo.
-    grupos=("$GRUPO")
-  else
-    # Sem --grupo, obedece o STACKS do perfil. NUNCA "tudo": instalar R,
-    # Python e Docker numa maquina que so precisa de navegador nao e util
-    # para ninguem.
-    read -r -a grupos <<< "$STACKS"
-  fi
+  while IFS= read -r g; do
+    [ -n "$g" ] && grupos+=("$g")
+  done < <(grupos_pedidos)
 
   info "grupos: ${grupos[*]}"
 
-  local g pkg
   for g in "${grupos[@]}"; do
     while IFS= read -r pkg; do
       [ -n "$pkg" ] && lista+=("$pkg")
@@ -308,23 +317,289 @@ instalar_flatpak() {
   return 0
 }
 
+# instalar_pacote_baixado <url> <rotulo>
+#   Baixa um .rpm/.deb avulso e instala PELO gerenciador (nao por rpm -i /
+#   dpkg -i), para que as dependencias sejam resolvidas junto. Devolve 1 em
+#   caso de falha, sem abortar o setup: um programa a menos nao justifica
+#   derrubar o resto.
+instalar_pacote_baixado() {
+  local url="$1" rotulo="$2" dir arq codigo=0
+
+  dir="$(mktemp -d)"
+  # A extensao importa: dnf e apt-get recusam um caminho local sem ela.
+  arq="$dir/pacote.${url##*.}"
+
+  info "baixando $rotulo"
+  if ! curl -fSL --retry 2 -o "$arq" "$url"; then
+    rm -rf "$dir"
+    aviso "nao consegui baixar o $rotulo"
+    return 1
+  fi
+
+  info "instalando $rotulo"
+  if [ "$GER" = "dnf" ]; then
+    sudo dnf install -y "$arq" || codigo=1
+  else
+    sudo apt-get install -y "$arq" || codigo=1
+  fi
+
+  rm -rf "$dir"
+  [ "$codigo" -ne 0 ] && aviso "o $rotulo falhou ao instalar"
+  return "$codigo"
+}
+
+# url_release_github <repo> <regex-do-arquivo>
+#   Endereco do arquivo da release "latest" que casa com o regex. Serve para
+#   nao fixar numero de versao no script: versao fixa envelhece calada e um
+#   dia vira 404 -- foi o que o java-17-openjdk-devel fez aqui.
+url_release_github() {
+  local repo="$1" padrao="$2" api="https://api.github.com/repos/$1/releases/latest"
+
+  if command -v jq >/dev/null 2>&1; then
+    curl -fsSL "$api" 2>/dev/null |
+      jq -r --arg re "$padrao" '.assets[].browser_download_url | select(test($re))' 2>/dev/null |
+      head -1
+  else
+    # Sem jq (ele entra no stack base, mas este script pode rodar com --grupo
+    # r numa maquina crua), o mesmo campo sai com grep.
+    curl -fsSL "$api" 2>/dev/null |
+      grep -oE '"browser_download_url": *"[^"]+"' |
+      cut -d'"' -f4 |
+      grep -E "$padrao" |
+      head -1
+  fi
+}
+
+# instalar_quarto_tarball -- Quarto em ~/.local, sem root.
+#   Caminho para maquina onde nao se tem sudo (WSL corporativo, laboratorio,
+#   servidor compartilhado). O Quarto e autocontido: basta descompactar e
+#   apontar um link para o binario.
+instalar_quarto_tarball() {
+  local url="$1" dir destino="$HOME/.local/opt/quarto" bin="$HOME/.local/bin"
+
+  dir="$(mktemp -d)"
+  info "baixando Quarto CLI (tarball, sem root)"
+  if ! curl -fSL --retry 2 -o "$dir/quarto.tar.gz" "$url"; then
+    rm -rf "$dir"
+    aviso "nao consegui baixar o Quarto"
+    return 1
+  fi
+
+  mkdir -p "$destino" "$bin"
+  # --strip-components=1 tira o diretorio "quarto-<versao>" de dentro do
+  # tarball: sem isso o caminho final carregaria o numero da versao, e o
+  # link quebraria na proxima atualizacao.
+  rm -rf "${destino:?}"/*
+  if ! tar -xzf "$dir/quarto.tar.gz" -C "$destino" --strip-components=1; then
+    rm -rf "$dir"
+    aviso "nao consegui descompactar o Quarto"
+    return 1
+  fi
+  rm -rf "$dir"
+
+  ln -sf "$destino/bin/quarto" "$bin/quarto"
+  ok "Quarto CLI instalado em $destino"
+
+  case ":$PATH:" in
+    *":$bin:"*) ;;
+    *) aviso "$bin nao esta no PATH -- abra um terminal novo ou rode ./install.sh" ;;
+  esac
+  return 0
+}
+
+# instalar_quarto -- Quarto CLI, sempre na release estavel mais recente.
+#   Quem renderiza .qmd/.Rmd e este binario; o pacote R "quarto" so conversa
+#   com ele. A Posit publica .rpm/.deb nas releases do GitHub, sem
+#   repositorio, entao a versao vem da API em vez de estar escrita aqui.
+instalar_quarto() {
+  local padrao url url_tar
+
+  if command -v quarto >/dev/null 2>&1; then
+    ok "Quarto CLI ja instalado ($(quarto --version 2>/dev/null))"
+    return 0
+  fi
+
+  case "$GER:$(uname -m)" in
+    dnf:x86_64)  padrao='linux-x86_64\.rpm$' ;;
+    dnf:aarch64) padrao='linux-aarch64\.rpm$' ;;
+    apt:x86_64)  padrao='linux-amd64\.deb$' ;;
+    apt:aarch64) padrao='linux-arm64\.deb$' ;;
+    *)
+      aviso "sem pacote de Quarto para $GER/$(uname -m) -- veja https://quarto.org/docs/get-started/"
+      return 0
+      ;;
+  esac
+
+  url="$(url_release_github quarto-dev/quarto-cli "$padrao")"
+  if [ -z "$url" ]; then
+    # A API do GitHub limita chamadas anonimas por hora; nao e motivo para
+    # derrubar o setup.
+    aviso "nao consegui descobrir a versao atual do Quarto -- instale manualmente: https://quarto.org/docs/get-started/"
+    return 0
+  fi
+
+  # Pacote do sistema e o caminho preferido (entra no PATH de todo mundo e
+  # sai pelo gerenciador). Sem root utilizavel, o tarball em ~/.local resolve
+  # igual -- e melhor que terminar sem Quarto nenhum.
+  if sudo -n true 2>/dev/null; then
+    instalar_pacote_baixado "$url" "Quarto CLI" && return 0
+    aviso "tentando o tarball em ~/.local no lugar"
+  else
+    info "sem sudo sem senha -- instalando o Quarto em ~/.local"
+  fi
+
+  case "$(uname -m)" in
+    x86_64)  url_tar="$(url_release_github quarto-dev/quarto-cli 'linux-amd64\.tar\.gz$')" ;;
+    aarch64) url_tar="$(url_release_github quarto-dev/quarto-cli 'linux-arm64\.tar\.gz$')" ;;
+  esac
+
+  if [ -z "${url_tar:-}" ]; then
+    aviso "nao consegui descobrir o tarball do Quarto -- instale manualmente: https://quarto.org/docs/get-started/"
+    return 0
+  fi
+
+  instalar_quarto_tarball "$url_tar" ||
+    aviso "instale manualmente: https://quarto.org/docs/get-started/"
+  return 0
+}
+
+# expor_pandoc -- deixa o pandoc do Quarto visivel no PATH.
+#
+#   O rmarkdown (.Rmd sem Quarto) chama o pandoc do sistema e para com
+#   "pandoc version 2.8 or higher is required" quando nao acha. No Fedora
+#   isso e garantido: a distribuicao nao empacota o pandoc solto, so as
+#   bibliotecas Haskell. Mas o Quarto ja traz um pandoc completo dentro
+#   dele, entao o certo e apontar para esse -- nao instalar um segundo.
+#
+#   Um link em ~/.local/bin resolve para o R, o RStudio e o terminal de uma
+#   vez, sem mexer em .bashrc de ninguem.
+expor_pandoc() {
+  local quarto_bin raiz pandoc bin="$HOME/.local/bin"
+
+  if command -v pandoc >/dev/null 2>&1; then
+    ok "pandoc: $(command -v pandoc)"
+    return 0
+  fi
+
+  quarto_bin="$(command -v quarto 2>/dev/null || echo "$HOME/.local/bin/quarto")"
+  [ -x "$quarto_bin" ] || return 0
+
+  # Resolve o link para chegar na arvore real do Quarto (~/.local/opt/quarto
+  # ou /opt/quarto, conforme tenha vindo por tarball ou por pacote).
+  quarto_bin="$(readlink -f "$quarto_bin")"
+  raiz="$(dirname "$(dirname "$quarto_bin")")"
+
+  # Procurado em vez de escrito: o caminho tem a arquitetura no meio
+  # (bin/tools/x86_64/pandoc) e ja mudou de forma entre versoes do Quarto.
+  pandoc="$(find "$raiz" -type f -name pandoc -perm -u+x 2>/dev/null | head -1)"
+  if [ -z "$pandoc" ]; then
+    aviso "nao achei o pandoc dentro do Quarto -- .Rmd em PDF pode falhar"
+    return 0
+  fi
+
+  mkdir -p "$bin"
+  ln -sf "$pandoc" "$bin/pandoc"
+  ok "pandoc do Quarto exposto em $bin/pandoc ($("$pandoc" --version | head -1))"
+  return 0
+}
+
+# garantir_latex -- LaTeX que se completa sozinho, para renderizar PDF.
+#
+#   Instala o TinyTeX MESMO quando ja existe LaTeX do sistema, e isso e
+#   deliberado. Medido nesta maquina em 13/09/2026: com o texlive do Fedora
+#   (263 pacotes instalados), "quarto render" de um .qmd com chunk de R
+#   morria em "LaTeX Error: File `framed.sty' not found" -- e o tlmgr que
+#   vem da distribuicao nao instala pacote sob demanda, porque quem manda
+#   nos arquivos e o dnf. O caminho la seria caçar texlive-<pacote> um a um,
+#   a cada documento novo.
+#
+#   O TinyTeX resolve pela raiz: no mesmo documento ele baixou framed,
+#   selnolig e hyphen-portuguese sozinho, durante o render. Mora em
+#   ~/.TinyTeX, nao precisa de root e nao conflita com o texlive do sistema.
+garantir_latex() {
+  local quarto_bin
+
+  if [ -d "$HOME/.TinyTeX" ]; then
+    ok "TinyTeX ja instalado"
+    return 0
+  fi
+
+  # Pode ter acabado de ser instalado em ~/.local/bin, que ainda nao esta no
+  # PATH deste shell.
+  if command -v quarto >/dev/null 2>&1; then
+    quarto_bin="quarto"
+  elif [ -x "$HOME/.local/bin/quarto" ]; then
+    quarto_bin="$HOME/.local/bin/quarto"
+  else
+    aviso "sem Quarto -- sem ele nao instalo o TinyTeX; PDF nao vai renderizar"
+    return 0
+  fi
+
+  info "instalando TinyTeX (LaTeX para PDF, ~200 MB, sem root)"
+  "$quarto_bin" install tinytex --no-prompt >/dev/null 2>&1 ||
+    aviso "o TinyTeX falhou -- rode 'quarto install tinytex' manualmente"
+  return 0
+}
+
+# instalar_rstudio -- baixa e instala o .rpm/.deb oficial da Posit.
+#   O RStudio Desktop nao esta no dnf nem no apt (fica "-" no manifesto), a
+#   Posit nao publica repositorio para Linux e ele tambem nao existe no
+#   Flathub -- entao nem o caminho do DBeaver/Obsidian serve aqui. Sobra o
+#   arquivo avulso do site, que e o que esta funcao faz.
+#
+#   Os enderecos "latest" abaixo redirecionam sempre para a versao estavel
+#   atual, de proposito: numero de versao fixo aqui dentro envelheceria e
+#   quebraria calado, como ja aconteceu com o java-17-openjdk-devel.
+instalar_rstudio() {
+  local url
+
+  # Pergunta ao gerenciador alem do PATH: o pacote da Posit ja mudou de lugar
+  # de binario entre versoes, e um "command -v" sozinho baixaria 500 MB de
+  # novo a cada run se o link em /usr/bin mudasse de nome.
+  if command -v rstudio >/dev/null 2>&1 ||
+     { [ "$GER" = "dnf" ] && rpm -q rstudio >/dev/null 2>&1; } ||
+     { [ "$GER" = "apt" ] && dpkg -s rstudio >/dev/null 2>&1; }; then
+    ok "RStudio ja instalado"
+    return 0
+  fi
+
+  # A Posit so publica RStudio Desktop para Linux em x86_64: em ARM nao ha
+  # arquivo para baixar, e insistir so geraria um 404 confuso.
+  if [ "$(uname -m)" != "x86_64" ]; then
+    aviso "a Posit nao publica RStudio Desktop para $(uname -m) -- veja https://posit.co/download/rstudio-desktop/"
+    return 0
+  fi
+
+  case "$GER" in
+    dnf) url="https://rstudio.org/download/latest/stable/desktop/rhel9/rstudio-latest-x86_64.rpm" ;;
+    apt) url="https://rstudio.org/download/latest/stable/desktop/jammy/rstudio-latest-amd64.deb" ;;
+    *)   return 0 ;;
+  esac
+
+  instalar_pacote_baixado "$url" "RStudio Desktop (arquivo grande)" ||
+    aviso "instale manualmente: https://posit.co/download/rstudio-desktop/"
+  return 0
+}
+
 # Programas que nao vem em repositorio de distribuicao.
 instalar_avulsos() {
   # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
   # maquina que pediu apenas "base", nada disto e instalado.
-  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0
+  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0 quer_r=0
   if [ -n "$GRUPO" ]; then
     [ "$GRUPO" = "python" ]     && quer_python=1
     [ "$GRUPO" = "dados" ]      && quer_dados=1
     [ "$GRUPO" = "escritorio" ] && quer_escritorio=1
     [ "$GRUPO" = "opcional" ]   && quer_opcional=1
     [ "$GRUPO" = "editor" ]     && quer_editor=1
+    [ "$GRUPO" = "r" ]          && quer_r=1
   else
     tem_stack python     && quer_python=1
     tem_stack dados      && quer_dados=1
     tem_stack escritorio && quer_escritorio=1
     tem_stack opcional   && quer_opcional=1
     tem_stack editor     && quer_editor=1
+    tem_stack r          && quer_r=1
   fi
 
   if [ "$quer_python" = "1" ]; then
@@ -342,6 +617,19 @@ instalar_avulsos() {
       info "instalando uv"
       curl -LsSf https://astral.sh/uv/install.sh | sh ||
         aviso "nao consegui instalar o uv -- sem rede ou astral.sh bloqueado. Rode de novo, ou instale manualmente: https://docs.astral.sh/uv/"
+    fi
+  fi
+
+  if [ "$quer_r" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o RStudio Desktop, o Quarto CLI e o TinyTeX"
+    else
+      instalar_rstudio
+      instalar_quarto
+      # Os dois dependem do Quarto ja estar no disco: um usa o pandoc que
+      # vem dentro dele, o outro e instalado por ele.
+      expor_pandoc
+      garantir_latex
     fi
   fi
 
@@ -404,8 +692,45 @@ instalar_avulsos() {
 
   [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&
     [ "$quer_escritorio" = "0" ] && [ "$quer_opcional" = "0" ] &&
-    [ "$quer_editor" = "0" ] &&
+    [ "$quer_editor" = "0" ] && [ "$quer_r" = "0" ] &&
     ok "nenhuma ferramenta avulsa pedida"
+  return 0
+}
+
+# --------------------------------------------------------------- pendencias --
+# avisar_indisponiveis -- conta o que os grupos pedidos NAO trouxeram.
+#   Pacote marcado "-" no manifesto e pulado em silencio por pacotes_para, e
+#   foi assim que o RStudio sumiu de um setup do stack "r" sem uma linha
+#   explicando por que. Aqui o silencio vira aviso, guiado pela chave "linux"
+#   do manifesto: "avulso" ja foi tratado acima (e quem falha la avisa por si),
+#   "nao" nao existe neste sistema, e a ausencia da chave e um esquecimento no
+#   manifesto -- que passa a aparecer em vez de sumir.
+avisar_indisponiveis() {
+  local g id nome sem_linux=""
+
+  while IFS= read -r g; do
+    [ -z "$g" ] && continue
+    while IFS= read -r id; do
+      [ -z "$id" ] && continue
+      [ -n "$(manifesto_valor "$id" "$GER")" ] && continue
+      nome="$(manifesto_valor "$id" nome)"
+      nome="${nome:-$id}"
+      case "$(manifesto_valor "$id" linux)" in
+        avulso) ;;
+        # Nesta linha entra so o nome, sem o parenteses explicativo do
+        # manifesto ("Everything (busca instantanea...)"): sao varios juntos
+        # e a linha inteira precisa caber na tela.
+        nao)    sem_linux="${sem_linux:+$sem_linux, }${nome%% (*}" ;;
+        *)      aviso "$nome nao tem pacote no $GER e ninguem mais o instala -- instale a mao (ou marque 'linux:' no pacotes.yaml)" ;;
+      esac
+    done < <(manifesto_ids "$g")
+  done < <(grupos_pedidos)
+
+  # Numa linha so: sao programas que nunca vao existir aqui (PowerToys,
+  # Rtools, Microsoft 365...), entao um aviso por item viraria ruido em todo
+  # run -- mas ficar calado deixa quem escolheu o grupo achando que falhou.
+  [ -n "$sem_linux" ] &&
+    aviso "sem equivalente no Linux, fora deste setup: $sem_linux"
   return 0
 }
 
@@ -438,6 +763,9 @@ pos_instalacao() {
 configurar_repos
 instalar_pacotes
 instalar_avulsos
+# Depois dos instaladores, para que o aviso fique no fim da tela em vez de
+# rolar junto com a saida do dnf.
+avisar_indisponiveis
 pos_instalacao
 
 echo

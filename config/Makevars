@@ -4,12 +4,31 @@
 #
 # Motivo de existir: compilar Rcpp sem esses ajustes fica lento e enche o
 # terminal de warning irrelevante de header de sistema.
+#
+# REGRA DESTE ARQUIVO: sempre "+=", nunca "=".
+#
+# O R le este arquivo DEPOIS do Makeconf da distribuicao, entao "=" nao
+# acrescenta: substitui. E o que a distribuicao coloca ali nao e enfeite. No
+# Fedora o CFLAGS padrao traz "-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1",
+# enquanto o LDFLAGS -- que este arquivo nao toca -- continua trazendo
+# "-specs=.../redhat-hardened-ld", que exige PIE na hora de linkar. Apagar so
+# o lado do compilador deixa os dois em desacordo, e qualquer pacote que
+# gere um executavel ou rode um teste de configure quebra:
+#
+#   ps    -> ld: relocalizacao R_X86_64_32 ... nao pode ser usada em objecto PIE
+#   uuid  -> configure: error: cannot run C compiled programs
+#   RcppArmadillo -> configure: error: cannot run C++ compiled programs
+#
+# E, como devtools/testthat/tidyverse dependem de ps, o estrago se espalha
+# por dezenas de pacotes. Foi exatamente o que aconteceu aqui em 12/09/2026.
 # ============================================================================
 
 # Compila para a arquitetura desta maquina. Ganho real em codigo numerico.
-# Remova -march=native se for distribuir o binario para outra maquina.
-CXXFLAGS = -O2 -march=native -pipe
-CFLAGS   = -O2 -march=native -pipe
+# Remova -march=native se for distribuir o binario para outra maquina -- ou
+# se sincronizar a biblioteca do R entre maquinas diferentes (Syncthing e
+# afins): binario compilado com -march=native nao roda em CPU mais antiga.
+CFLAGS   += -march=native
+CXXFLAGS += -march=native
 
 # Rcpp exige C++11 no minimo; 17 para poder usar structured bindings.
 CXX_STD = CXX17
@@ -17,5 +36,6 @@ CXX_STD = CXX17
 # Silencia warning que vem dos headers do proprio Rcpp/BH, nao do nosso codigo.
 CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations
 
-# Compilacao paralela dos pacotes (ajuste ao numero de nucleos).
+# Compilacao paralela: o setup-r.sh reescreve esta linha com o numero de
+# nucleos fisicos desta maquina (deixando um livre).
 MAKEFLAGS = -j4
