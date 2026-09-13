@@ -194,6 +194,27 @@ instalado nao e o mesmo que funcionando.
 ./scripts/setup-python.sh --verificar
 ```
 
+## Tema do KDE (opcional)
+
+Fora do fluxo principal de proposito: aparencia e gosto pessoal, e nenhum
+outro script chama este.
+
+```bash
+./scripts/tema-kde.sh --salvar     # grava o tema ATUAL em config/kde/tema.conf
+./scripts/tema-kde.sh --aplicar    # aplica numa maquina nova
+```
+
+O `--salvar` le o estado real da sessao, nao os defaults do pacote de tema --
+o que preserva os pontos em que voce desviou dele. O `--aplicar` baixa o tema
+do GitHub do autor quando faltar (sempre o ramo atual, sem versao fixa) e
+nunca passa `--resetLayout`: essa flag trocaria os seus paineis pelos do tema.
+
+**Papel de parede por hora do dia.** Um timer do systemd sorteia uma imagem a
+cada 15 minutos, de uma pasta por periodo: `dawn` 5-8h, `day` 8-17h, `dusk`
+17-20h, `night` 20-5h, em `~/Pictures/wallpapers-dynamic/`. As imagens **nao
+sao versionadas** -- sao dezenas de MB de licenca que nao e nossa para
+redistribuir. O script cria as quatro pastas e avisa se estiverem vazias.
+
 ## Hardware
 
 `scripts/hardware.{sh,ps1}` detecta CPU, GPU, placa-mae, rede, bluetooth e
@@ -218,6 +239,7 @@ proprietario, e fone Bluetooth sem os codecs cai no SBC.
 | `install.sh` / `install.ps1` | Aplica gitconfig, settings do VS Code, Makevars e atalhos do KDE -- so das areas que o perfil pediu |
 | `scripts/snapshot-*.{sh,ps1}` | Fotografa a maquina antes de formatar |
 | `scripts/cofre.{sh,ps1}` | Cofre cifrado de credenciais (`age`) |
+| `scripts/tema-kde.sh` | Tema e papel de parede do KDE (opcional, fora do fluxo) |
 | `docs/fedora-kde-primeiros-passos.md` | Primeira vez no Fedora KDE |
 | `docs/nvme-morreu.md` | Recuperacao de emergencia em menos de uma hora |
 | `docs/spark-no-windows.md` | As tres armadilhas do PySpark no Windows |

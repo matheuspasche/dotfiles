@@ -1,0 +1,6 @@
+[Unit]
+Description=Troca o papel de parede conforme a hora do dia
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/wallpaper-por-hora.sh
