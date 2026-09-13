@@ -28,6 +28,10 @@ AMBIENTE="lab"
 while [ $# -gt 0 ]; do
   case "$1" in
     --simular)        SIMULAR=1; shift ;;
+    # Aceito e ignorado: este script nao pergunta nada. Existe para que
+    # "--sim" possa ser passado a todos os scripts do fluxo sem que um deles
+    # pare com "argumento desconhecido" no meio de uma instalacao desatendida.
+    --sim)            shift ;;
     --verificar)      VERIFICAR=1; shift ;;
     --listar)         LISTAR=1; shift ;;
     --primeiro-plano) PRIMEIRO_PLANO=1; shift ;;

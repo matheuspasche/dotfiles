@@ -48,6 +48,10 @@ fi
 while [ $# -gt 0 ]; do
   case "$1" in
     --simular)   SIMULAR=1; shift ;;
+    # Aceito e ignorado: o install.sh nao pergunta nada. Existe para que
+    # "--sim" possa ser passado a todos os scripts do fluxo sem que um deles
+    # pare com "argumento desconhecido" no meio de uma instalacao desatendida.
+    --sim)       shift ;;
     --extensoes) EXTENSOES=1; shift ;;
     --apenas)    AREAS="${2:-}"; shift 2 ;;
     -h|--help)

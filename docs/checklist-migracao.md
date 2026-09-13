@@ -93,9 +93,14 @@ cd dotfiles
 ```
 
 ```bash
+./scripts/fedora-pos-instalacao.sh    # Fedora: codecs e drivers, ANTES do setup
 ./scripts/setup-linux.sh              # Fedora / Ubuntu
 ./scripts/setup-macos.sh              # macOS
 ```
+
+No Fedora a ordem importa: o `fedora-pos-instalacao.sh` troca o ffmpeg da
+distribuicao pelo do RPM Fusion, do qual dependem as bibliotecas de 32 bits
+do Steam. Acrescente `--sim` aos dois para rodar sem perguntas.
 
 Tudo vem de `pacotes.yaml`. Programa que faltar, adicione la -- e nao no
 script.

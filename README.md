@@ -62,6 +62,19 @@ cd ~/dotfiles
 Todo script aceita `--simular` (ou `-Simular`) para mostrar o que faria sem
 tocar em nada. Use na primeira vez.
 
+E aceita `--sim` para nao perguntar nada e rodar do inicio ao fim -- util
+quando voce ja respondeu tudo no `configurar.sh` e so quer que instale:
+
+```bash
+./scripts/fedora-pos-instalacao.sh --sim   # codecs e drivers
+./scripts/setup-linux.sh --sim             # programas
+```
+
+A ordem importa no Fedora: o `fedora-pos-instalacao.sh` troca o ffmpeg da
+distribuicao pelo do RPM Fusion, e e isso que permite instalar as
+bibliotecas de 32 bits de que o Steam precisa. Rodar o setup antes dele
+funciona, mas o Steam abre reclamando de bibliotecas ausentes.
+
 ## Stacks disponiveis
 
 Escolha os que quiser no assistente. Cada um e independente.
@@ -201,8 +214,8 @@ proprietario, e fone Bluetooth sem os codecs cai no SBC.
 | `scripts/hardware.{sh,ps1}` | Detecta o hardware e diz o que ele pede |
 | `scripts/setup-{linux,macos,windows}` | Instala o que o perfil pediu |
 | `scripts/setup-{r,python}.{sh,ps1}` | Bibliotecas, PATH, Rtools, Jupyter, Spark |
-| `scripts/fedora-pos-instalacao.sh` | Codecs, drivers e Flathub, perguntando a cada passo |
-| `install.sh` / `install.ps1` | Aplica gitconfig, settings do VS Code e Makevars |
+| `scripts/fedora-pos-instalacao.sh` | Codecs, drivers e Flathub, seguindo as chaves `FEDORA_*` do perfil |
+| `install.sh` / `install.ps1` | Aplica gitconfig, settings do VS Code, Makevars e atalhos do KDE -- so das areas que o perfil pediu |
 | `scripts/snapshot-*.{sh,ps1}` | Fotografa a maquina antes de formatar |
 | `scripts/cofre.{sh,ps1}` | Cofre cifrado de credenciais (`age`) |
 | `docs/fedora-kde-primeiros-passos.md` | Primeira vez no Fedora KDE |

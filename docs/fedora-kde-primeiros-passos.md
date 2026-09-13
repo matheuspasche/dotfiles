@@ -5,12 +5,21 @@ esta chegando ao Fedora, e ao KDE, pela primeira vez.
 
 A maior parte esta automatizada em
 [`scripts/fedora-pos-instalacao.sh`](../scripts/fedora-pos-instalacao.sh), que
-**pergunta antes de cada passo**. Este documento explica o porque de cada um --
-util quando algo nao funciona e voce precisa entender o que o script fez.
+**obedece as chaves `FEDORA_*` do seu `perfil.conf`** -- as mesmas que o
+`configurar.sh` perguntou. Sem perfil, ele pergunta passo a passo. Este
+documento explica o porque de cada um: util quando algo nao funciona e voce
+precisa entender o que o script fez.
 
 ```bash
 ./scripts/hardware.sh                  # o que o seu hardware pede
-./scripts/fedora-pos-instalacao.sh     # aplica, perguntando passo a passo
+./scripts/fedora-pos-instalacao.sh     # aplica o que o perfil pediu
+```
+
+Duas opcoes para o resto dos casos:
+
+```bash
+./scripts/fedora-pos-instalacao.sh --perguntar   # confirmar passo a passo
+./scripts/fedora-pos-instalacao.sh --sim         # sem perguntar nada
 ```
 
 ---

@@ -221,9 +221,12 @@ Dentro do Ubuntu:
 ```bash
 git clone https://github.com/matheuspasche/dotfiles.git
 cd dotfiles
-./scripts/setup-linux.sh
+./scripts/setup-linux.sh --sim
 ./install.sh
 ```
+
+O `--sim` nao pergunta nada: numa recuperacao de emergencia voce quer o
+terminal trabalhando sozinho enquanto cuida do resto.
 
 O mesmo `pacotes.yaml` serve os dois lados.
 
