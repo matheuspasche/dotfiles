@@ -59,3 +59,15 @@ AppData/Roaming/DBeaverData/workspace6/General/.dbeaver
 # --- shell ---
 # .env pessoal com variaveis de ambiente que nao vao para repositorio.
 .env.pessoal
+
+# --- papel de parede (NAO e segredo) ---
+# Entra aqui por carona, nao por sigilo: sao as imagens que o
+# scripts/tema-kde.sh usa para trocar o papel de parede por hora do dia, e o
+# cofre e o unico pacote do kit que ja viaja para outra maquina. Nao sao
+# versionadas no repositorio porque a licenca delas nao e nossa.
+#
+# CUSTO: ~30 MB. O resto do cofre nao chega a 0,1 MB, entao isto o torna
+# cerca de 300x maior e cada "cofre.sh fechar" passa a comprimir 30 MB de
+# jpg. Se um dia incomodar, apague esta linha e sincronize as imagens pelo
+# Syncthing, que ja esta no manifesto.
+Pictures/wallpapers-dynamic

@@ -211,9 +211,14 @@ nunca passa `--resetLayout`: essa flag trocaria os seus paineis pelos do tema.
 
 **Papel de parede por hora do dia.** Um timer do systemd sorteia uma imagem a
 cada 15 minutos, de uma pasta por periodo: `dawn` 5-8h, `day` 8-17h, `dusk`
-17-20h, `night` 20-5h, em `~/Pictures/wallpapers-dynamic/`. As imagens **nao
-sao versionadas** -- sao dezenas de MB de licenca que nao e nossa para
-redistribuir. O script cria as quatro pastas e avisa se estiverem vazias.
+17-20h, `night` 20-5h, em `~/Pictures/wallpapers-dynamic/`.
+
+As imagens **nao sao versionadas** -- sao dezenas de MB de licenca que nao e
+nossa para redistribuir. Elas viajam no **cofre**, junto com as credenciais:
+`./scripts/cofre.sh abrir` traz as imagens de volta numa maquina nova. Isso
+faz o cofre passar de ~0,1 MB para ~30 MB; se incomodar, tire
+`Pictures/wallpapers-dynamic` do `config/segredos.lista` e sincronize pelo
+Syncthing, que ja esta no manifesto.
 
 ## Hardware
 

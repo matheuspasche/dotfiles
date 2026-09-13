@@ -184,13 +184,15 @@ if [ "${WALLPAPER_MODO:-estatico}" = "hora" ]; then
   executar systemctl --user enable --now wallpaper-por-hora.timer
 
   # As imagens nao vem no repositorio: sao dezenas de MB e de licenca que nao
-  # e nossa para redistribuir. Sem elas o script roda e nao faz nada, o que e
-  # pior do que dizer na cara que faltam.
+  # e nossa para redistribuir. Elas viajam pelo cofre (config/segredos.lista
+  # inclui Pictures/wallpapers-dynamic). Sem elas o script roda e nao faz
+  # nada, o que e pior do que dizer na cara que faltam.
   if [ "$SIMULAR" != "1" ]; then
     total="$(find "$pasta" -type f -iname '*.jpg' 2>/dev/null | wc -l)"
     if [ "$total" -eq 0 ]; then
       aviso "nenhuma imagem em $pasta -- o papel de parede nao vai trocar"
-      echo "    Ponha .jpg nas quatro pastas: dawn/ day/ dusk/ night/"
+      echo "    Elas viajam no cofre:  ./scripts/cofre.sh abrir"
+      echo "    Ou ponha .jpg a mao nas quatro pastas: dawn/ day/ dusk/ night/"
     else
       ok "papel de parede por hora ativo ($total imagens)"
     fi
