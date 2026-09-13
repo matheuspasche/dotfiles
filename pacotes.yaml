@@ -149,13 +149,26 @@ pacotes:
   - id: steam
     nome: Steam
     grupo: jogos
-    # No Fedora o pacote dnf exige o RPM Fusion nonfree; o Flatpak nao exige
-    # nada e ainda traz o proprio runtime de 32 bits, que e do que a maioria
-    # dos jogos precisa. Por isso Flatpak aqui.
-    flatpak: com.valvesoftware.Steam
-    linux: avulso
-    dnf: "-"
-    apt: "-"
+    # Nativo, e nao Flatpak, por um motivo medido: o Steam de hoje pede
+    # ffmpeg 8 (libavcodec.so.62) e o runtime freedesktop 25.08 do Flatpak
+    # ainda entrega ffmpeg 7 (libavcodec.so.61). Dentro do sandbox nao ha o
+    # que instalar para resolver -- o aviso "You are missing the following
+    # 32-bit libraries" e consequencia disso. O pacote nativo usa o ffmpeg e
+    # o Mesa do proprio sistema, que estao atualizados.
+    #
+    # Custa o RPM Fusion nonfree, mas so para quem pedir o grupo "jogos":
+    # e o que a chave repo abaixo garante.
+    repo: rpmfusion-nonfree
+    # ffmpeg-libs.i686 nao vem como dependencia do steam, e sem ele o cliente
+    # abre reclamando "You are missing the following 32-bit libraries"
+    # (libavcodec.so.62 e companhia) -- o Steam e um binario de 32 bits e
+    # precisa da versao de 32 bits dessas libs, nao da de 64.
+    dnf: steam ffmpeg-libs.i686
+    # No Debian o steam vive em non-free e no Ubuntu em multiverse; o kit nao
+    # habilita nenhum dos dois (no Ubuntu desktop o multiverse ja vem ligado).
+    # As libs de 32 bits la exigiriam "dpkg --add-architecture i386" antes, o
+    # que o kit tambem nao faz -- por isso so o steam aqui.
+    apt: steam
     brew: steam
     cask: "sim"
     winget: Valve.Steam

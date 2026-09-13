@@ -99,7 +99,7 @@ precisa_repo() {
 configurar_repos() {
   if [ "$SIMULAR" = "1" ]; then
     local r
-    for r in vscode docker google-chrome brave; do
+    for r in vscode docker google-chrome brave rpmfusion-nonfree; do
       precisa_repo "$r" && info "[simular] configuraria o repositorio: $r"
     done
     return 0
@@ -145,6 +145,18 @@ configurar_repos() {
         sudo rm -f /etc/yum.repos.d/brave-browser.repo
         aviso "nao foi possivel adicionar o repositorio do Brave"
       fi
+    fi
+
+    # RPM Fusion nonfree -- exigido pelo steam, e so por ele. Entra pela mesma
+    # regra dos outros: se nada neste run pedir, nao e configurado. O passo de
+    # codecs e drivers continua sendo do fedora-pos-instalacao.sh.
+    if precisa_repo rpmfusion-nonfree &&
+       ! rpm -q rpmfusion-nonfree-release >/dev/null 2>&1; then
+      info "adicionando RPM Fusion (exigido pelo Steam)"
+      sudo dnf install -y \
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" ||
+        aviso "nao consegui adicionar o RPM Fusion; o Steam nao sera encontrado"
     fi
 
     # Docker CE (o docker do repositorio padrao do Fedora e o moby, mais velho)
@@ -844,15 +856,12 @@ instalar_avulsos() {
     fi
   fi
 
-  # Steam, Heroic e ProtonUp-Qt vem do Flathub. O Steam do dnf exigiria o RPM
-  # Fusion nonfree; o Flatpak nao exige nada e traz o runtime de 32 bits que a
-  # maioria dos jogos precisa. A Epic nao publica launcher para Linux -- quem
-  # faz esse papel e o Heroic.
+  # Heroic e ProtonUp-Qt vem do Flathub (o Steam vem do dnf, ver manifesto).
+  # A Epic nao publica launcher para Linux -- quem faz esse papel e o Heroic.
   if [ "$quer_jogos" = "1" ]; then
     if [ "$SIMULAR" = "1" ]; then
-      info "[simular] instalaria Steam, Heroic e ProtonUp-Qt via Flatpak"
+      info "[simular] instalaria Heroic e ProtonUp-Qt via Flatpak"
     else
-      instalar_do_manifesto steam
       instalar_do_manifesto heroic
       instalar_do_manifesto protonup
       avisar_jogos
