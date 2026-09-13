@@ -347,6 +347,7 @@ pacotes:
   - id: obsidian
     nome: Obsidian
     grupo: opcional
+    # No Linux vem por Flatpak; o setup-linux.sh cuida disso.
     dnf: "-"
     apt: "-"
     brew: obsidian
