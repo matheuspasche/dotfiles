@@ -200,17 +200,44 @@ instalar_pacotes() {
 }
 
 # ------------------------------------------------------ ferramentas avulsas --
+# instalar_flatpak <id-flatpak> <rotulo>
+#   Instala do Flathub o que nao existe no repositorio da distribuicao.
+#   Ausencia de flatpak vira aviso, nao erro: e um programa a menos, nao um
+#   motivo para abortar o resto do setup.
+instalar_flatpak() {
+  local app="$1" rotulo="$2"
+
+  if ! command -v flatpak >/dev/null 2>&1; then
+    aviso "flatpak indisponivel -- instale o $rotulo manualmente"
+    return 0
+  fi
+
+  if flatpak list --app 2>/dev/null | grep -qi "$app"; then
+    ok "$rotulo ja instalado"
+    return 0
+  fi
+
+  info "instalando $rotulo via Flatpak"
+  flatpak install -y flathub "$app" ||
+    aviso "$rotulo falhou -- instale manualmente"
+  return 0
+}
+
 # Programas que nao vem em repositorio de distribuicao.
 instalar_avulsos() {
   # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
   # maquina que pediu apenas "base", nada disto e instalado.
-  local quer_python=0 quer_dados=0
+  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0
   if [ -n "$GRUPO" ]; then
-    [ "$GRUPO" = "python" ] && quer_python=1
-    [ "$GRUPO" = "dados" ]  && quer_dados=1
+    [ "$GRUPO" = "python" ]     && quer_python=1
+    [ "$GRUPO" = "dados" ]      && quer_dados=1
+    [ "$GRUPO" = "escritorio" ] && quer_escritorio=1
+    [ "$GRUPO" = "opcional" ]   && quer_opcional=1
   else
-    tem_stack python && quer_python=1
-    tem_stack dados  && quer_dados=1
+    tem_stack python     && quer_python=1
+    tem_stack dados      && quer_dados=1
+    tem_stack escritorio && quer_escritorio=1
+    tem_stack opcional   && quer_opcional=1
   fi
 
   if [ "$quer_python" = "1" ]; then
@@ -238,20 +265,33 @@ instalar_avulsos() {
       fi
 
       # DBeaver via Flatpak: evita conflito de versao de JDK com o Spark.
-      if command -v flatpak >/dev/null 2>&1; then
-        if flatpak list 2>/dev/null | grep -qi dbeaver; then
-          ok "DBeaver ja instalado"
-        else
-          info "instalando DBeaver via Flatpak"
-          flatpak install -y flathub io.dbeaver.DBeaverCommunity ||             aviso "DBeaver falhou -- instale manualmente"
-        fi
-      else
-        aviso "flatpak indisponivel -- instale o DBeaver manualmente"
-      fi
+      instalar_flatpak io.dbeaver.DBeaverCommunity "DBeaver"
     fi
   fi
 
-  [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&     ok "nenhuma ferramenta avulsa pedida"
+  # ONLYOFFICE e Obsidian nao existem no dnf nem no apt (ficam "-" no
+  # manifesto, e o pacotes_para pula em silencio). Sem isto, quem escolhe
+  # "escritorio" ou "opcional" no configurar.sh -- que promete os dois pelo
+  # nome -- nao recebe nem o programa nem um aviso.
+  if [ "$quer_escritorio" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o ONLYOFFICE"
+    else
+      instalar_flatpak org.onlyoffice.desktopeditors "ONLYOFFICE"
+    fi
+  fi
+
+  if [ "$quer_opcional" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o Obsidian"
+    else
+      instalar_flatpak md.obsidian.Obsidian "Obsidian"
+    fi
+  fi
+
+  [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&
+    [ "$quer_escritorio" = "0" ] && [ "$quer_opcional" = "0" ] &&
+    ok "nenhuma ferramenta avulsa pedida"
   return 0
 }
 
