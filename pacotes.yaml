@@ -16,6 +16,19 @@
 #   - chaves de gerenciador: dnf, apt, brew, cask, winget, scoop
 #   - grupo: ver lista abaixo
 #
+#   - repo: <id> -- este pacote so resolve com um repositorio de terceiro.
+#     O setup-linux.sh configura APENAS os repositorios exigidos pelo que ele
+#     vai instalar de fato. Assim "--grupo r" numa maquina de trabalho nao sai
+#     acrescentando repositorio de VS Code e de Docker que ninguem pediu.
+#     Ids conhecidos: vscode | docker | google-chrome | brave
+#   - winget_fonte: <fonte> -- fonte alternativa do winget (hoje so "msstore",
+#     a Microsoft Store). Sem esta chave, usa-se a fonte padrao.
+#   - linux: avulso | nao -- obrigatorio quando dnf E apt sao "-", pois o
+#     setup-linux.sh pula esses em silencio. "avulso" = o proprio script o
+#     instala por fora (Flatpak, .rpm/.deb, instalador oficial); "nao" = nao
+#     existe equivalente no Linux. Sem a chave, o setup avisa que o programa
+#     ficou de fora -- e assim um esquecimento aqui aparece, em vez de sumir.
+#
 # Os grupos estao em ordem de necessidade, do universal ao especialista, e a
 # ordem dos itens neste arquivo segue a mesma ideia. O criterio e simples:
 # "se eu fosse formatar o computador de alguem que nao programa, isso
@@ -34,16 +47,6 @@
 # Ate "dev" a lista serve a qualquer pessoa; dali para baixo e ambiente de
 # trabalho tecnico. Foi por isso que o git saiu de "base": ele e prioritario
 # para quem programa, e irrelevante para quem nao programa.
-#   - repo: <id> -- este pacote so resolve com um repositorio de terceiro.
-#     O setup-linux.sh configura APENAS os repositorios exigidos pelo que ele
-#     vai instalar de fato. Assim "--grupo r" numa maquina de trabalho nao sai
-#     acrescentando repositorio de VS Code e de Docker que ninguem pediu.
-#     Ids conhecidos: vscode | docker | google-chrome | brave
-#   - linux: avulso | nao -- obrigatorio quando dnf E apt sao "-", pois o
-#     setup-linux.sh pula esses em silencio. "avulso" = o proprio script o
-#     instala por fora (Flatpak, .rpm/.deb, instalador oficial); "nao" = nao
-#     existe equivalente no Linux. Sem a chave, o setup avisa que o programa
-#     ficou de fora -- e assim um esquecimento aqui aparece, em vez de sumir.
 # ============================================================================
 
 pacotes:
@@ -104,15 +107,17 @@ pacotes:
     # o ZapZap (com.rtosta.zapzap), o mais ativo deles, e renomeia o atalho
     # para "WhatsApp" -- ver instalar_whatsapp la.
     #
-    # winget "-" de proposito: no Windows o app oficial sai pela Microsoft
-    # Store, que e outra fonte do winget. Por um id que nao resolve na fonte
-    # padrao, melhor deixar explicito que nao ha caminho automatico ainda.
+    # No Windows o app oficial (publisher "WhatsApp Inc.") sai pela Microsoft
+    # Store, que e outra FONTE do winget -- por isso o winget_fonte abaixo.
+    # Sem ele o winget procura so na fonte padrao e responde "nenhum pacote
+    # encontrado" para este id.
     linux: avulso
     dnf: "-"
     apt: "-"
     brew: whatsapp
     cask: "sim"
-    winget: "-"
+    winget: 9NKSQGP7F2NH
+    winget_fonte: msstore
     scoop: "-"
 
   - id: vlc

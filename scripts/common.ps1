@@ -95,11 +95,18 @@ function Get-PacotesPara {
         if (-not $p.ContainsKey($Gerenciador)) { continue }
         $valor = $p[$Gerenciador]
         if ([string]::IsNullOrWhiteSpace($valor)) { continue }
+        # winget_fonte nomeia a fonte alternativa do winget (hoje so 'msstore').
+        # Vazio = fonte padrao, que e o caso de quase todo pacote.
+        $fonte = ''
+        if ($Gerenciador -eq 'winget' -and $p.ContainsKey('winget_fonte')) {
+            $fonte = $p['winget_fonte']
+        }
         [void]$saida.Add([pscustomobject]@{
             id    = $p['id']
             nome  = $p['nome']
             grupo = $p['grupo']
             pkg   = $valor
+            fonte = $fonte
         })
     }
     return $saida.ToArray()

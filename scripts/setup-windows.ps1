@@ -58,30 +58,46 @@ if (-not (Test-Admin)) {
 # ---------------------------------------------------------------------------
 
 # Verifica se um pacote winget ja consta como instalado.
+# -Fonte restringe a busca a uma fonte alternativa (hoje so 'msstore'), porque
+# um id de produto da Store nao existe na fonte padrao do winget.
 function Test-WingetInstalado {
-    param([Parameter(Mandatory)][string]$Id)
-    $saida = winget list --id $Id --exact --accept-source-agreements 2>$null | Out-String
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [string]$Fonte
+    )
+    $args = @('list', '--id', $Id, '--exact', '--accept-source-agreements')
+    if ($Fonte) { $args += @('--source', $Fonte) }
+    $saida = winget @args 2>$null | Out-String
     return ($saida -match [regex]::Escape($Id))
 }
 
 function Install-ViaWinget {
     param([Parameter(Mandatory)][pscustomobject]$Pacote)
 
-    if (Test-WingetInstalado -Id $Pacote.pkg) {
+    $fonte = ''
+    if ($Pacote.PSObject.Properties.Name -contains 'fonte') { $fonte = $Pacote.fonte }
+
+    if (Test-WingetInstalado -Id $Pacote.pkg -Fonte $fonte) {
         Write-Ok "ja instalado: $($Pacote.nome)"
         return $true
     }
 
     if ($Simular) {
-        Write-Info "[simular] winget install $($Pacote.pkg)"
+        $de = if ($fonte) { " (fonte $fonte)" } else { '' }
+        Write-Info "[simular] winget install $($Pacote.pkg)$de"
         return $true
     }
 
     Write-Info "instalando $($Pacote.nome) ($($Pacote.pkg))"
     # --silent evita janelas de instalador travando o script sem supervisao.
-    $codigo = Invoke-Nativo -Comando 'winget' -Silencioso -Argumentos @(
+    $argumentos = @(
         'install', '--id', $Pacote.pkg, '--exact', '--silent',
         '--accept-package-agreements', '--accept-source-agreements')
+    # Sem --source, o winget so procura na fonte padrao e responde "nenhum
+    # pacote encontrado" para um id que so existe na Microsoft Store.
+    if ($fonte) { $argumentos += @('--source', $fonte) }
+
+    $codigo = Invoke-Nativo -Comando 'winget' -Silencioso -Argumentos $argumentos
 
     if ($codigo -eq 0) {
         Write-Ok "instalado: $($Pacote.nome)"
