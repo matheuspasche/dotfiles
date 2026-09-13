@@ -149,6 +149,17 @@ manifesto_ids() {
   ' "$arquivo"
 }
 
+# manifesto_grupos -- lista, sem repetir, os grupos declarados no manifesto.
+manifesto_grupos() {
+  local arquivo="${1:-$MANIFESTO}"
+  [ -f "$arquivo" ] || morre "manifesto nao encontrado: $arquivo"
+  awk '/^[[:space:]]+grupo:[[:space:]]*/ {
+         g = $0; sub(/^[^:]*:[[:space:]]*/, "", g); gsub(/"/, "", g)
+         sub(/[[:space:]]+$/, "", g)
+         if (!(g in visto)) { visto[g]; print g }
+       }' "$arquivo"
+}
+
 # manifesto_valor <id> <chave>
 #   Devolve o valor de uma chave do item. String vazia quando a chave nao
 #   existe ou quando vale "-" (indisponivel naquele gerenciador).

@@ -257,12 +257,50 @@ resolver_java() {
 #   precisa de navegador nao e util para ninguem.
 grupos_pedidos() {
   local -a grupos=()
+  local g
   if [ -n "$GRUPO" ]; then
     grupos=("$GRUPO")
   else
     read -r -a grupos <<< "$STACKS"
   fi
-  [ "${#grupos[@]}" -gt 0 ] && printf '%s\n' "${grupos[@]}"
+
+  for g in ${grupos[@]+"${grupos[@]}"}; do
+    # "navegador" nao e um stack: o grupo tem os tres navegadores e o usuario
+    # escolhe UM em NAVEGADOR. Tratado como stack, instalaria Firefox, Chrome
+    # e Brave de uma vez -- e ainda duplicaria o escolhido, que entra por
+    # fora. Quem pedir explicitamente recebe o aviso em vez dos tres.
+    # O aviso correspondente sai uma unica vez, em validar_grupos: esta
+    # funcao e chamada por varios consumidores e avisaria seis vezes.
+    [ "$g" = "navegador" ] && continue
+    printf '%s\n' "$g"
+  done
+  return 0
+}
+
+# validar_grupos -- reclama, uma vez so, do que foi pedido e nao existe.
+#   Grupo inexistente some sem deixar rastro: pacotes_para devolve vazio e o
+#   setup segue como se nada tivesse sido pedido. Isso morde justamente depois
+#   de uma renomeacao de grupo, quando um perfil.conf antigo continua pedindo
+#   um nome que ja nao existe.
+validar_grupos() {
+  local -a pedidos=()
+  local g
+  if [ -n "$GRUPO" ]; then
+    pedidos=("$GRUPO")
+  else
+    read -r -a pedidos <<< "$STACKS"
+  fi
+
+  for g in ${pedidos[@]+"${pedidos[@]}"}; do
+    if [ "$g" = "navegador" ]; then
+      aviso "\"navegador\" nao e um stack -- o setup instala so o escolhido em NAVEGADOR"
+      continue
+    fi
+    if ! manifesto_ids "$g" | grep -q .; then
+      aviso "stack \"$g\" nao existe no pacotes.yaml -- nada sera instalado por ele"
+      echo "    stacks validos: $(manifesto_grupos | grep -v '^navegador$' | tr '\n' ' ')"
+    fi
+  done
   return 0
 }
 
@@ -276,6 +314,8 @@ instalar_pacotes() {
   done < <(grupos_pedidos)
 
   info "grupos: ${grupos[*]}"
+
+  validar_grupos
 
   for g in "${grupos[@]}"; do
     while IFS= read -r pkg; do
@@ -313,6 +353,15 @@ instalar_pacotes() {
     esac
   done
   lista=("${lista[@]}")
+
+  # Sem repetir: o mesmo pacote pode chegar por dois caminhos (o navegador
+  # escolhido, um id multivalor) e "dnf install x x" e so ruido na tela.
+  local -a unicos=()
+  for pkg in ${lista[@]+"${lista[@]}"}; do
+    case " ${unicos[*]-} " in *" $pkg "*) continue ;; esac
+    unicos+=("$pkg")
+  done
+  lista=(${unicos[@]+"${unicos[@]}"})
 
   [ "${#lista[@]}" -eq 0 ] && { aviso "nada a instalar"; return 0; }
 
@@ -516,6 +565,69 @@ instalar_quarto() {
   return 0
 }
 
+# instalar_whatsapp -- ZapZap do Flathub, aparecendo como "WhatsApp".
+#
+#   A Meta nao publica cliente de desktop para Linux. O que existe no Flathub
+#   sao wrappers de terceiros em volta do WhatsApp Web; o ZapZap e o mais
+#   ativo deles. Isso esta dito aqui e no pacotes.yaml de proposito: instalar
+#   um wrapper e confiar suas mensagens a um empacotador independente, e quem
+#   ler este repo daqui a um ano merece saber disso sem ter que descobrir.
+#
+#   O atalho vem com o nome "ZapZap" e um icone cinza, o que faz ninguem
+#   achar o programa procurando por "WhatsApp" no menu. A funcao escreve um
+#   .desktop em ~/.local/share/applications, que tem precedencia sobre o do
+#   Flatpak, so trocando nome e icone -- o Exec continua sendo o do ZapZap.
+instalar_whatsapp() {
+  local origem destino icone alvo_icone
+  local app=com.rtosta.zapzap
+
+  instalar_flatpak "$app" "WhatsApp (ZapZap)"
+
+  # Se o Flatpak nao entrou, nao ha atalho para renomear.
+  flatpak list --app --columns=application 2>/dev/null | grep -qx "$app" || return 0
+
+  origem=""
+  for d in /var/lib/flatpak/exports/share/applications \
+           "$HOME/.local/share/flatpak/exports/share/applications"; do
+    [ -f "$d/$app.desktop" ] && { origem="$d/$app.desktop"; break; }
+  done
+  [ -z "$origem" ] && return 0
+
+  # Icone: procurado entre os temas ja instalados, nunca baixado. Se a maquina
+  # nao tiver nenhum icone de WhatsApp, fica o do ZapZap mesmo -- melhor que
+  # buscar logo de terceiro num endereco qualquer.
+  icone="$(find /usr/share/icons "$HOME/.local/share/icons" \
+                /var/lib/flatpak/exports/share/icons \
+                -iname 'whatsapp.svg' -o -iname 'whatsapp.png' 2>/dev/null | head -1)"
+
+  destino="$HOME/.local/share/applications/$app.desktop"
+  mkdir -p "$(dirname "$destino")"
+
+  if [ -n "$icone" ]; then
+    # Copiado para hicolor porque e o tema que todo os outros herdam: assim o
+    # icone aparece independente do tema que o usuario estiver usando.
+    alvo_icone="$HOME/.local/share/icons/hicolor/scalable/apps/whatsapp-zapzap.${icone##*.}"
+    mkdir -p "$(dirname "$alvo_icone")"
+    cp -f "$icone" "$alvo_icone"
+    # Name[xx]= traduzidos sao APAGADOS, nao convertidos: transformar cada um
+    # em "Name=" produziria chave repetida, que torna o .desktop invalido.
+    sed -e 's/^Name=.*/Name=WhatsApp/' \
+        -e '/^Name\[/d' \
+        -e 's/^Icon=.*/Icon=whatsapp-zapzap/' "$origem" > "$destino"
+  else
+    aviso "sem icone de WhatsApp nos temas instalados -- mantendo o do ZapZap"
+    sed -e 's/^Name=.*/Name=WhatsApp/' -e '/^Name\[/d' "$origem" > "$destino"
+  fi
+
+  command -v update-desktop-database >/dev/null 2>&1 &&
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
+  command -v gtk-update-icon-cache >/dev/null 2>&1 &&
+    gtk-update-icon-cache -q "$HOME/.local/share/icons/hicolor" 2>/dev/null
+
+  ok "WhatsApp (ZapZap) no menu como \"WhatsApp\""
+  return 0
+}
+
 # expor_pandoc -- deixa o pandoc do Quarto visivel no PATH.
 #
 #   O rmarkdown (.Rmd sem Quarto) chama o pandoc do sistema e para com
@@ -638,7 +750,7 @@ instalar_rstudio() {
 instalar_avulsos() {
   # Cada ferramenta so entra se o stack correspondente estiver ligado. Numa
   # maquina que pediu apenas "base", nada disto e instalado.
-  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0 quer_r=0
+  local quer_python=0 quer_dados=0 quer_escritorio=0 quer_opcional=0 quer_editor=0 quer_r=0 quer_pessoal=0
   if [ -n "$GRUPO" ]; then
     [ "$GRUPO" = "python" ]     && quer_python=1
     [ "$GRUPO" = "dados" ]      && quer_dados=1
@@ -646,6 +758,7 @@ instalar_avulsos() {
     [ "$GRUPO" = "opcional" ]   && quer_opcional=1
     [ "$GRUPO" = "editor" ]     && quer_editor=1
     [ "$GRUPO" = "r" ]          && quer_r=1
+    [ "$GRUPO" = "pessoal" ]    && quer_pessoal=1
   else
     tem_stack python     && quer_python=1
     tem_stack dados      && quer_dados=1
@@ -653,6 +766,7 @@ instalar_avulsos() {
     tem_stack opcional   && quer_opcional=1
     tem_stack editor     && quer_editor=1
     tem_stack r          && quer_r=1
+    tem_stack pessoal    && quer_pessoal=1
   fi
 
   if [ "$quer_python" = "1" ]; then
@@ -670,6 +784,18 @@ instalar_avulsos() {
       info "instalando uv"
       curl -LsSf https://astral.sh/uv/install.sh | sh ||
         aviso "nao consegui instalar o uv -- sem rede ou astral.sh bloqueado. Rode de novo, ou instale manualmente: https://docs.astral.sh/uv/"
+    fi
+  fi
+
+  # Spotify e WhatsApp nao existem no dnf/apt. O Spotify distribui pelo
+  # Flathub; o WhatsApp nao tem cliente oficial para Linux nenhum (ver
+  # instalar_whatsapp).
+  if [ "$quer_pessoal" = "1" ]; then
+    if [ "$SIMULAR" = "1" ]; then
+      info "[simular] instalaria o Spotify e o WhatsApp (ZapZap) via Flatpak"
+    else
+      instalar_flatpak com.spotify.Client "Spotify"
+      instalar_whatsapp
     fi
   fi
 
@@ -746,6 +872,7 @@ instalar_avulsos() {
   [ "$quer_python" = "0" ] && [ "$quer_dados" = "0" ] &&
     [ "$quer_escritorio" = "0" ] && [ "$quer_opcional" = "0" ] &&
     [ "$quer_editor" = "0" ] && [ "$quer_r" = "0" ] &&
+    [ "$quer_pessoal" = "0" ] &&
     ok "nenhuma ferramenta avulsa pedida"
   return 0
 }

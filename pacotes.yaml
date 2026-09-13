@@ -14,7 +14,26 @@
 #   - demais chaves vem com 4 espacos de indentacao
 #   - valor "-" significa "nao disponivel neste gerenciador" (pula)
 #   - chaves de gerenciador: dnf, apt, brew, cask, winget, scoop
-#   - grupo: base | dados | r | python | container | jvm | opcional
+#   - grupo: ver lista abaixo
+#
+# Os grupos estao em ordem de necessidade, do universal ao especialista, e a
+# ordem dos itens neste arquivo segue a mesma ideia. O criterio e simples:
+# "se eu fosse formatar o computador de alguem que nao programa, isso
+# entraria?". Se nao entraria, nao e base.
+#
+#   base           curl e o terminal -- o minimo de QUALQUER maquina
+#   pessoal        Spotify, WhatsApp, VLC
+#   navegador      Firefox | Chrome | Brave (escolhe-se UM em NAVEGADOR)
+#   escritorio     LibreOffice, OnlyOffice
+#   produtividade  utilitarios de janela, captura, busca
+#   opcional       Obsidian, Syncthing
+#   dev            git, gh, ripgrep, fd, jq, age
+#   editor         VS Code, Claude Code, Node
+#   python | r | dados | jvm | container
+#
+# Ate "dev" a lista serve a qualquer pessoa; dali para baixo e ambiente de
+# trabalho tecnico. Foi por isso que o git saiu de "base": ele e prioritario
+# para quem programa, e irrelevante para quem nao programa.
 #   - repo: <id> -- este pacote so resolve com um repositorio de terceiro.
 #     O setup-linux.sh configura APENAS os repositorios exigidos pelo que ele
 #     vai instalar de fato. Assim "--grupo r" numa maquina de trabalho nao sai
@@ -29,27 +48,8 @@
 
 pacotes:
 
-  # ---------------------------------------------------------------- base ---
-  - id: git
-    nome: Git
-    grupo: base
-    dnf: git
-    apt: git
-    brew: git
-    winget: Git.Git
-    scoop: git
-
-  - id: gh
-    nome: GitHub CLI
-    grupo: base
-    # So o apt precisa: no Fedora o gh vem do repositorio oficial. Um id de
-    # repo que o gerenciador atual nao conheca e simplesmente ignorado.
-    repo: github-cli
-    dnf: gh
-    apt: gh
-    brew: gh
-    winget: GitHub.cli
-    scoop: gh
+  # base -----------------------------------------------------------------
+  # o minimo de qualquer maquina
 
   - id: curl
     nome: curl
@@ -60,9 +60,246 @@ pacotes:
     winget: cURL.cURL
     scoop: curl
 
+  - id: windows-terminal
+    nome: Windows Terminal
+    grupo: base
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.WindowsTerminal
+    scoop: "-"
+
+  - id: powershell7
+    nome: PowerShell 7
+    grupo: base
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.PowerShell
+    scoop: "-"
+
+  # pessoal --------------------------------------------------------------
+  # musica, mensagens, video -- a maquina de uso comum
+
+  - id: spotify
+    nome: Spotify
+    grupo: pessoal
+    # No Linux vem do Flathub, que e por onde o proprio Spotify distribui
+    # para desktop Linux -- nao ha pacote dnf/apt oficial.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: spotify
+    cask: "sim"
+    winget: Spotify.Spotify
+    scoop: "-"
+
+  - id: whatsapp
+    nome: WhatsApp
+    grupo: pessoal
+    # A Meta nao publica cliente de desktop para Linux: no Flathub so existem
+    # wrappers de terceiros em volta do WhatsApp Web. O setup-linux.sh instala
+    # o ZapZap (com.rtosta.zapzap), o mais ativo deles, e renomeia o atalho
+    # para "WhatsApp" -- ver instalar_whatsapp la.
+    #
+    # winget "-" de proposito: no Windows o app oficial sai pela Microsoft
+    # Store, que e outra fonte do winget. Por um id que nao resolve na fonte
+    # padrao, melhor deixar explicito que nao ha caminho automatico ainda.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: whatsapp
+    cask: "sim"
+    winget: "-"
+    scoop: "-"
+
+  - id: vlc
+    nome: VLC
+    grupo: pessoal
+    dnf: vlc
+    apt: vlc
+    brew: vlc
+    cask: "sim"
+    winget: VideoLAN.VLC
+    scoop: "-"
+
+  # navegador ------------------------------------------------------------
+  # o usuario escolhe UM em NAVEGADOR no perfil.conf
+
+  - id: firefox
+    nome: Firefox
+    grupo: navegador
+    dnf: firefox
+    apt: firefox
+    brew: firefox
+    cask: "sim"
+    winget: Mozilla.Firefox
+    scoop: "-"
+
+  - id: chrome
+    nome: Google Chrome
+    grupo: navegador
+    # Exige o repositorio do Google, habilitado pelo setup-linux.sh so quando
+    # este navegador e o escolhido.
+    repo: google-chrome
+    dnf: google-chrome-stable
+    apt: google-chrome-stable
+    brew: google-chrome
+    cask: "sim"
+    winget: Google.Chrome
+    scoop: "-"
+
+  - id: brave
+    nome: Brave
+    grupo: navegador
+    # Nao existe em repositorio de distribuicao: exige o repo da Brave.
+    repo: brave
+    dnf: brave-browser
+    apt: brave-browser
+    brew: brave-browser
+    cask: "sim"
+    winget: Brave.Brave
+    scoop: "-"
+
+  # Editor de documentos. No Linux nao existe Microsoft Office nativo; o
+  # LibreOffice e o padrao das distribuicoes e o OnlyOffice e a alternativa
+  # com melhor fidelidade a arquivos .docx e .xlsx do Office.
+
+  # escritorio -----------------------------------------------------------
+  # documentos e planilhas
+
+  - id: libreoffice
+    nome: LibreOffice
+    grupo: escritorio
+    dnf: libreoffice
+    apt: libreoffice
+    brew: libreoffice
+    cask: "sim"
+    winget: TheDocumentFoundation.LibreOffice
+    scoop: "-"
+
+  - id: onlyoffice
+    nome: ONLYOFFICE Desktop Editors
+    grupo: escritorio
+    # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: onlyoffice
+    cask: "sim"
+    winget: ONLYOFFICE.DesktopEditors
+    scoop: "-"
+
+  - id: microsoft365
+    nome: Microsoft 365 (exige assinatura)
+    grupo: escritorio
+    # Sem equivalente nativo no Linux -- la o caminho e a versao web ou o
+    # LibreOffice. O setup avisa em vez de falhar.
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: microsoft-office
+    cask: "sim"
+    winget: Microsoft.Office
+    scoop: "-"
+
+  # produtividade --------------------------------------------------------
+  # utilitarios de janela, captura e busca
+
+  - id: powertoys
+    nome: PowerToys (FancyZones, PowerRename, Run)
+    grupo: produtividade
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: Microsoft.PowerToys
+    scoop: "-"
+
+  - id: everything
+    nome: Everything (busca instantanea de arquivos)
+    grupo: produtividade
+    linux: nao
+    dnf: "-"
+    apt: "-"
+    brew: "-"
+    winget: voidtools.Everything
+    scoop: "-"
+
+  - id: kde-utils
+    nome: Utilitarios do KDE (Kate, Spectacle, Filelight)
+    grupo: produtividade
+    # Equivalentes de PowerToys no KDE: o proprio KWin ja faz tiling, e o
+    # KRunner cobre o PowerToys Run. Estes completam o basico.
+    dnf: kate spectacle filelight kcalc
+    apt: kate kde-spectacle filelight kcalc
+    brew: "-"
+    winget: "-"
+    scoop: "-"
+
+  - id: flameshot
+    nome: Flameshot (captura de tela com anotacao)
+    grupo: produtividade
+    dnf: flameshot
+    apt: flameshot
+    brew: flameshot
+    cask: "sim"
+    winget: Flameshot.Flameshot
+    scoop: "-"
+
+  # opcional -------------------------------------------------------------
+  # extras de quem sabe que quer
+
+  - id: obsidian
+    nome: Obsidian
+    grupo: opcional
+    # No Linux vem por Flatpak; o setup-linux.sh cuida disso.
+    linux: avulso
+    dnf: "-"
+    apt: "-"
+    brew: obsidian
+    cask: "sim"
+    winget: Obsidian.Obsidian
+    scoop: "-"
+
+  - id: syncthing
+    nome: Syncthing (sincronizacao entre maquinas, sem nuvem)
+    grupo: opcional
+    dnf: syncthing
+    apt: syncthing
+    brew: syncthing
+    winget: Syncthing.Syncthing
+    scoop: "-"
+
+  # dev ------------------------------------------------------------------
+  # ferramentas de linha de comando de quem programa
+
+  - id: git
+    nome: Git
+    grupo: dev
+    dnf: git
+    apt: git
+    brew: git
+    winget: Git.Git
+    scoop: git
+
+  - id: gh
+    nome: GitHub CLI
+    grupo: dev
+    # So o apt precisa: no Fedora o gh vem do repositorio oficial. Um id de
+    # repo que o gerenciador atual nao conheca e simplesmente ignorado.
+    repo: github-cli
+    dnf: gh
+    apt: gh
+    brew: gh
+    winget: GitHub.cli
+    scoop: gh
+
   - id: ripgrep
     nome: ripgrep
-    grupo: base
+    grupo: dev
     dnf: ripgrep
     apt: ripgrep
     brew: ripgrep
@@ -71,7 +308,7 @@ pacotes:
 
   - id: fd
     nome: fd
-    grupo: base
+    grupo: dev
     dnf: fd-find
     apt: fd-find
     brew: fd
@@ -80,7 +317,7 @@ pacotes:
 
   - id: jq
     nome: jq
-    grupo: base
+    grupo: dev
     dnf: jq
     apt: jq
     brew: jq
@@ -89,12 +326,15 @@ pacotes:
 
   - id: age
     nome: age (cifragem do cofre de segredos)
-    grupo: base
+    grupo: dev
     dnf: age
     apt: age
     brew: age
     winget: FiloSottile.age
     scoop: age
+
+  # editor ---------------------------------------------------------------
+  # editor de codigo e runtime
 
   - id: vscode
     nome: Visual Studio Code
@@ -130,27 +370,8 @@ pacotes:
     winget: OpenJS.NodeJS.LTS
     scoop: nodejs-lts
 
-  - id: windows-terminal
-    nome: Windows Terminal
-    grupo: base
-    linux: nao
-    dnf: "-"
-    apt: "-"
-    brew: "-"
-    winget: Microsoft.WindowsTerminal
-    scoop: "-"
+  # python ---------------------------------------------------------------
 
-  - id: powershell7
-    nome: PowerShell 7
-    grupo: base
-    linux: nao
-    dnf: "-"
-    apt: "-"
-    brew: "-"
-    winget: Microsoft.PowerShell
-    scoop: "-"
-
-  # -------------------------------------------------------------- python ---
   - id: python
     nome: Python 3
     grupo: python
@@ -170,7 +391,8 @@ pacotes:
     winget: astral-sh.uv
     scoop: uv
 
-  # ------------------------------------------------------------------- R ---
+  # r --------------------------------------------------------------------
+
   - id: r
     nome: R
     grupo: r
@@ -237,7 +459,8 @@ pacotes:
     winget: "-"
     scoop: "-"
 
-  # --------------------------------------------------------------- dados ---
+  # dados ----------------------------------------------------------------
+
   - id: dbeaver
     nome: DBeaver Community
     grupo: dados
@@ -259,7 +482,8 @@ pacotes:
     winget: DuckDB.cli
     scoop: duckdb
 
-  # ----------------------------------------------------------------- jvm ---
+  # jvm ------------------------------------------------------------------
+
   - id: java
     nome: JDK 17 (requisito do Spark)
     grupo: jvm
@@ -269,7 +493,8 @@ pacotes:
     winget: EclipseAdoptium.Temurin.17.JDK
     scoop: temurin17-jdk
 
-  # ----------------------------------------------------------- container ---
+  # container ------------------------------------------------------------
+
   - id: docker
     nome: Docker
     grupo: container
@@ -281,157 +506,5 @@ pacotes:
     winget: Docker.DockerDesktop
     scoop: "-"
 
-  # ----------------------------------------------------------- navegador ---
   # O usuario escolhe um em NAVEGADOR no perfil.conf; o setup instala so esse.
   # O Fedora KDE ja vem com Firefox, entao "firefox" costuma ser no-op la.
-
-  - id: firefox
-    nome: Firefox
-    grupo: navegador
-    dnf: firefox
-    apt: firefox
-    brew: firefox
-    cask: "sim"
-    winget: Mozilla.Firefox
-    scoop: "-"
-
-  - id: chrome
-    nome: Google Chrome
-    grupo: navegador
-    # Exige o repositorio do Google, habilitado pelo setup-linux.sh so quando
-    # este navegador e o escolhido.
-    repo: google-chrome
-    dnf: google-chrome-stable
-    apt: google-chrome-stable
-    brew: google-chrome
-    cask: "sim"
-    winget: Google.Chrome
-    scoop: "-"
-
-  - id: brave
-    nome: Brave
-    grupo: navegador
-    # Nao existe em repositorio de distribuicao: exige o repo da Brave.
-    repo: brave
-    dnf: brave-browser
-    apt: brave-browser
-    brew: brave-browser
-    cask: "sim"
-    winget: Brave.Brave
-    scoop: "-"
-
-  # ---------------------------------------------------------- escritorio ---
-  # Editor de documentos. No Linux nao existe Microsoft Office nativo; o
-  # LibreOffice e o padrao das distribuicoes e o OnlyOffice e a alternativa
-  # com melhor fidelidade a arquivos .docx e .xlsx do Office.
-
-  - id: libreoffice
-    nome: LibreOffice
-    grupo: escritorio
-    dnf: libreoffice
-    apt: libreoffice
-    brew: libreoffice
-    cask: "sim"
-    winget: TheDocumentFoundation.LibreOffice
-    scoop: "-"
-
-  - id: onlyoffice
-    nome: ONLYOFFICE Desktop Editors
-    grupo: escritorio
-    # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
-    linux: avulso
-    dnf: "-"
-    apt: "-"
-    brew: onlyoffice
-    cask: "sim"
-    winget: ONLYOFFICE.DesktopEditors
-    scoop: "-"
-
-  - id: microsoft365
-    nome: Microsoft 365 (exige assinatura)
-    grupo: escritorio
-    # Sem equivalente nativo no Linux -- la o caminho e a versao web ou o
-    # LibreOffice. O setup avisa em vez de falhar.
-    linux: nao
-    dnf: "-"
-    apt: "-"
-    brew: microsoft-office
-    cask: "sim"
-    winget: Microsoft.Office
-    scoop: "-"
-
-  # -------------------------------------------------------- produtividade --
-
-  - id: powertoys
-    nome: PowerToys (FancyZones, PowerRename, Run)
-    grupo: produtividade
-    linux: nao
-    dnf: "-"
-    apt: "-"
-    brew: "-"
-    winget: Microsoft.PowerToys
-    scoop: "-"
-
-  - id: everything
-    nome: Everything (busca instantanea de arquivos)
-    grupo: produtividade
-    linux: nao
-    dnf: "-"
-    apt: "-"
-    brew: "-"
-    winget: voidtools.Everything
-    scoop: "-"
-
-  - id: kde-utils
-    nome: Utilitarios do KDE (Kate, Spectacle, Filelight)
-    grupo: produtividade
-    # Equivalentes de PowerToys no KDE: o proprio KWin ja faz tiling, e o
-    # KRunner cobre o PowerToys Run. Estes completam o basico.
-    dnf: kate spectacle filelight kcalc
-    apt: kate kde-spectacle filelight kcalc
-    brew: "-"
-    winget: "-"
-    scoop: "-"
-
-  - id: flameshot
-    nome: Flameshot (captura de tela com anotacao)
-    grupo: produtividade
-    dnf: flameshot
-    apt: flameshot
-    brew: flameshot
-    cask: "sim"
-    winget: Flameshot.Flameshot
-    scoop: "-"
-
-  # -------------------------------------------------------------- opcional --
-
-  - id: obsidian
-    nome: Obsidian
-    grupo: opcional
-    # No Linux vem por Flatpak; o setup-linux.sh cuida disso.
-    linux: avulso
-    dnf: "-"
-    apt: "-"
-    brew: obsidian
-    cask: "sim"
-    winget: Obsidian.Obsidian
-    scoop: "-"
-
-  - id: vlc
-    nome: VLC
-    grupo: opcional
-    dnf: vlc
-    apt: vlc
-    brew: vlc
-    cask: "sim"
-    winget: VideoLAN.VLC
-    scoop: "-"
-
-  - id: syncthing
-    nome: Syncthing (sincronizacao entre maquinas, sem nuvem)
-    grupo: opcional
-    dnf: syncthing
-    apt: syncthing
-    brew: syncthing
-    winget: Syncthing.Syncthing
-    scoop: "-"

@@ -92,16 +92,18 @@ NOVO_GIT_EMAIL="$(perguntar_texto '   Seu e-mail' "$GIT_EMAIL")"
 
 # ------------------------------------------------------------------ stacks ---
 NOVO_STACKS="$(perguntar_lista '2. Que stacks voce usa?' "$STACKS" \
-  "base:git, curl, busca -- o minimo de qualquer maquina" \
-  "editor:VS Code e Node" \
-  "python:Python e uv" \
-  "r:R, RStudio e toolchain de compilacao" \
-  "dados:DBeaver, DuckDB" \
-  "jvm:JDK 17 (requisito do Spark)" \
-  "container:Docker" \
+  "base:curl e terminal -- o minimo de QUALQUER maquina" \
+  "pessoal:Spotify, WhatsApp, VLC" \
   "escritorio:LibreOffice, OnlyOffice" \
-  "produtividade:PowerToys (Windows), utilitarios do KDE" \
-  "opcional:navegador extra, VLC, Obsidian")"
+  "produtividade:utilitarios do KDE, captura de tela, PowerToys (Windows)" \
+  "opcional:Obsidian, Syncthing" \
+  "dev:git, gh, ripgrep, fd, jq, age" \
+  "editor:VS Code, Claude Code e Node" \
+  "python:Python e uv" \
+  "r:R, RStudio, Quarto e toolchain de compilacao" \
+  "dados:DBeaver, DuckDB" \
+  "jvm:JDK (requisito do Spark)" \
+  "container:Docker")"
 
 # ------------------------------------------------------------- bibliotecas ---
 NOVO_LIBS_R=""

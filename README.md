@@ -68,20 +68,38 @@ Escolha os que quiser no assistente. Cada um e independente.
 
 | Stack | O que traz |
 |---|---|
-| `base` | git, gh, curl, ripgrep, fd, jq, age — o minimo de qualquer maquina |
-| `editor` | VS Code e Node |
-| `python` | Python, uv, e os conjuntos de bibliotecas que voce marcar |
-| `r` | R, RStudio, toolchain de compilacao (Rtools no Windows) |
-| `dados` | DBeaver, DuckDB |
-| `jvm` | JDK 17, requisito do Spark |
-| `container` | Docker (e o WSL2 no Windows) |
+| `base` | curl e o terminal — o minimo de QUALQUER maquina |
+| `pessoal` | Spotify, WhatsApp, VLC |
 | `escritorio` | LibreOffice, OnlyOffice, Microsoft 365 |
-| `produtividade` | PowerToys e Everything no Windows; utilitarios do KDE no Linux |
-| `navegador` | Firefox, Chrome ou Brave — so o que voce escolher |
-| `opcional` | VLC, Obsidian, Syncthing |
+| `produtividade` | utilitarios do KDE e captura de tela; PowerToys e Everything no Windows |
+| `opcional` | Obsidian, Syncthing |
+| `dev` | git, gh, ripgrep, fd, jq, age |
+| `editor` | VS Code, Claude Code e Node |
+| `python` | Python, uv, e os conjuntos de bibliotecas que voce marcar |
+| `r` | R, RStudio, Quarto, TinyTeX e toolchain de compilacao |
+| `dados` | DBeaver, DuckDB |
+| `jvm` | JDK, requisito do Spark |
+| `container` | Docker (e o WSL2 no Windows) |
 
-Editor de codigo fica em `editor`, e nao em `base`, de proposito: um
-computador de uso comum nao precisa de VS Code.
+O navegador fica **fora** da tabela de proposito: voce escolhe um em
+`NAVEGADOR` no `perfil.conf` (Firefox, Chrome ou Brave) e o setup instala so
+esse. Pedir `navegador` como stack instalaria os tres.
+
+A ordem da tabela e a ordem de necessidade. O criterio para decidir onde uma
+coisa entra e: **"se eu fosse formatar o computador de alguem que nao
+programa, isso entraria?"**
+
+Por isso o `git` esta em `dev` e nao em `base`. Ele e prioritario para quem
+programa e irrelevante para quem nao programa -- e `base` significa "todo
+mundo", nao "todo programador". Da mesma forma, VS Code fica em `editor`.
+
+Formatar uma maquina de uso comum, entao, e `base pessoal navegador
+escritorio` -- sem nada de desenvolvimento.
+
+**WhatsApp no Linux:** a Meta nao publica cliente de desktop para Linux. O
+kit instala o [ZapZap](https://github.com/zapzap-linux/zapzap) do Flathub, um
+wrapper de terceiro em volta do WhatsApp Web, e renomeia o atalho para
+"WhatsApp". No macOS e no Windows nao ha wrapper nenhum: la o app e o oficial.
 
 ## Bibliotecas de R e Python
 
