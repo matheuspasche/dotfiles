@@ -103,6 +103,33 @@ seaborn, plotly), `py-ml` (scikit-learn, xgboost), `py-spark`, `py-notebook`,
 
 A instalacao vai para segundo plano com log, para nao prender o terminal.
 
+### Usar so o modulo de R, numa maquina que nao e sua
+
+O caso tipico: voce entrou numa empresa, a maquina ja vem configurada e voce
+so precisa do ambiente de R -- sem trocar o `.gitconfig` de lugar, sem mexer
+nas settings do VS Code da equipe e sem encher o sistema de repositorio que
+ninguem pediu.
+
+```bash
+./scripts/setup-linux.sh --grupo r        # R, toolchain, RStudio, Quarto, TinyTeX
+./install.sh --apenas r                   # so o ~/.R/Makevars e o ~/.Rprofile
+./scripts/setup-r.sh --conjuntos "r-shiny r-relatorio"
+./scripts/setup-r.sh --verificar          # renderiza HTML e PDF de verdade
+```
+
+O que esses comandos **nao** fazem:
+
+- **nao adicionam repositorio de terceiro alheio.** Cada repositorio e
+  declarado em `repo:` no `pacotes.yaml` e so entra se algum pacote daquele
+  run precisar dele. `--grupo r` nao configura VS Code, Docker nem RPM Fusion.
+- **nao sobrescrevem sua configuracao.** `--apenas r` aplica so o Makevars e o
+  Rprofile. As areas sao `git`, `vscode` e `r`, combinaveis:
+  `./install.sh --apenas "git r"`.
+- **nao exigem `perfil.conf`.** `--grupo` e `--conjuntos` ignoram o perfil.
+
+O `--apenas r` nao e opcional na pratica: sem o `Makevars` os pacotes de R
+compilam com as flags erradas e varios simplesmente falham.
+
 ### O que o setup conserta sozinho
 
 - **Rtools fora do PATH** — causa numero um de "Rcpp nao compila" no Windows.

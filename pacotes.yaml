@@ -15,6 +15,11 @@
 #   - valor "-" significa "nao disponivel neste gerenciador" (pula)
 #   - chaves de gerenciador: dnf, apt, brew, cask, winget, scoop
 #   - grupo: base | dados | r | python | container | jvm | opcional
+#   - repo: <id> -- este pacote so resolve com um repositorio de terceiro.
+#     O setup-linux.sh configura APENAS os repositorios exigidos pelo que ele
+#     vai instalar de fato. Assim "--grupo r" numa maquina de trabalho nao sai
+#     acrescentando repositorio de VS Code e de Docker que ninguem pediu.
+#     Ids conhecidos: vscode | docker | google-chrome | brave
 #   - linux: avulso | nao -- obrigatorio quando dnf E apt sao "-", pois o
 #     setup-linux.sh pula esses em silencio. "avulso" = o proprio script o
 #     instala por fora (Flatpak, .rpm/.deb, instalador oficial); "nao" = nao
@@ -37,6 +42,9 @@ pacotes:
   - id: gh
     nome: GitHub CLI
     grupo: base
+    # So o apt precisa: no Fedora o gh vem do repositorio oficial. Um id de
+    # repo que o gerenciador atual nao conheca e simplesmente ignorado.
+    repo: github-cli
     dnf: gh
     apt: gh
     brew: gh
@@ -91,6 +99,7 @@ pacotes:
   - id: vscode
     nome: Visual Studio Code
     grupo: editor
+    repo: vscode
     dnf: code
     apt: code
     brew: visual-studio-code
@@ -264,6 +273,7 @@ pacotes:
   - id: docker
     nome: Docker
     grupo: container
+    repo: docker
     dnf: docker-ce
     apt: docker-ce
     brew: docker
@@ -288,8 +298,9 @@ pacotes:
   - id: chrome
     nome: Google Chrome
     grupo: navegador
-    # No Fedora exige o repositorio do Google, habilitado pelo setup-linux.sh
-    # quando este navegador e o escolhido.
+    # Exige o repositorio do Google, habilitado pelo setup-linux.sh so quando
+    # este navegador e o escolhido.
+    repo: google-chrome
     dnf: google-chrome-stable
     apt: google-chrome-stable
     brew: google-chrome
@@ -300,6 +311,8 @@ pacotes:
   - id: brave
     nome: Brave
     grupo: navegador
+    # Nao existe em repositorio de distribuicao: exige o repo da Brave.
+    repo: brave
     dnf: brave-browser
     apt: brave-browser
     brew: brave-browser

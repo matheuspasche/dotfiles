@@ -6,9 +6,17 @@
 # vezes quiser. Arquivo pre-existente vira backup com timestamp.
 #
 # Uso:
-#   ./install.sh              aplica tudo
-#   ./install.sh --extensoes  tambem instala extensoes do VS Code
-#   ./install.sh --simular    mostra o que faria, sem escrever
+#   ./install.sh                  aplica tudo
+#   ./install.sh --extensoes      tambem instala extensoes do VS Code
+#   ./install.sh --simular        mostra o que faria, sem escrever
+#   ./install.sh --apenas r       so as configuracoes de R (Makevars, Rprofile)
+#   ./install.sh --apenas "git r" mais de uma area, entre aspas
+#
+# Areas: git | vscode | r
+#
+# O --apenas existe para a maquina que nao e sua: numa maquina de trabalho
+# voce quer o Makevars (sem ele os pacotes de R compilam errado) sem que o
+# kit sobrescreva o .gitconfig e as settings do VS Code da empresa.
 # ============================================================================
 
 set -euo pipefail
@@ -19,17 +27,35 @@ carregar_perfil
 SIMULAR=0
 EXTENSOES=0
 
-for arg in "$@"; do
-  case "$arg" in
-    --simular)   SIMULAR=1 ;;
-    --extensoes) EXTENSOES=1 ;;
+# Areas de configuracao aplicaveis. Sem --apenas, aplica todas.
+AREAS_VALIDAS="git vscode r"
+AREAS="$AREAS_VALIDAS"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --simular)   SIMULAR=1; shift ;;
+    --extensoes) EXTENSOES=1; shift ;;
+    --apenas)    AREAS="${2:-}"; shift 2 ;;
     -h|--help)
-      sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
-    *) morre "argumento desconhecido: $arg" ;;
+    *) morre "argumento desconhecido: $1" ;;
   esac
 done
+
+for area in $AREAS; do
+  case " $AREAS_VALIDAS " in
+    *" $area "*) ;;
+    *) morre "area desconhecida: $area (validas: $AREAS_VALIDAS)" ;;
+  esac
+done
+
+# quer_area <nome> -- verdadeiro quando aquela area deve ser aplicada.
+quer_area() {
+  case " $AREAS " in *" $1 "*) return 0 ;; esac
+  return 1
+}
 
 OS="$(detectar_os)"
 info "sistema detectado: $OS"
@@ -48,6 +74,8 @@ aplicar() {
 }
 
 # ------------------------------------------------------------------- git ----
+
+if quer_area git; then
 
 aplicar "$DOTFILES_RAIZ/config/gitconfig"        "$HOME/.gitconfig"        "gitconfig"
 aplicar "$DOTFILES_RAIZ/config/gitignore_global" "$HOME/.gitignore_global" "gitignore global"
@@ -87,7 +115,11 @@ else
   ok "ja existe: $HOME/.gitconfig.local"
 fi
 
+fi  # quer_area git
+
 # --------------------------------------------------------------- VS Code ----
+
+if quer_area vscode; then
 
 # O diretorio de configuracao do VS Code muda em cada sistema.
 case "$OS" in
@@ -122,7 +154,11 @@ if [ -f "$DOTFILES_RAIZ/config/vscode/keybindings.json" ]; then
           "$VSCODE_USER/keybindings.json" "VS Code keybindings.json"
 fi
 
+fi  # quer_area vscode
+
 # ----------------------------------------------------------------- R -------
+
+if quer_area r; then
 
 # No Windows o R le Documents/.R/Makevars.win; no resto, ~/.R/Makevars.
 if [ "$OS" = "gitbash" ]; then
@@ -136,9 +172,11 @@ if [ -f "$DOTFILES_RAIZ/config/Rprofile" ]; then
   aplicar "$DOTFILES_RAIZ/config/Rprofile" "$HOME/.Rprofile" ".Rprofile"
 fi
 
+fi  # quer_area r
+
 # ------------------------------------------------------- extensoes VS Code --
 
-if [ "$EXTENSOES" = "1" ]; then
+if [ "$EXTENSOES" = "1" ] && quer_area vscode; then
   lista="$DOTFILES_RAIZ/config/vscode/extensions.txt"
   if ! command -v code >/dev/null 2>&1; then
     aviso 'comando "code" nao esta no PATH -- pulando extensoes.'
@@ -179,5 +217,12 @@ if [ "$EXTENSOES" = "1" ]; then
 fi
 
 echo
-ok "install concluido."
-echo "Confira com:  git config --global --list"
+ok "install concluido (areas: $AREAS)."
+# A dica precisa falar do que foi realmente aplicado: mandar conferir o git
+# depois de um "--apenas r" so confunde. O "|| true" nao e decorativo: sob
+# "set -e", a ultima dica que nao se aplica derrubaria o codigo de saida
+# para 1 num install que deu certo.
+quer_area git    && echo "Confira com:  git config --global --list" || true
+quer_area r      && echo "Confira com:  R CMD config CFLAGS" || true
+quer_area vscode && echo "Confira com:  code --list-extensions" || true
+exit 0

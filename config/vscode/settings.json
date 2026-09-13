@@ -14,7 +14,6 @@
     "files.autoSave": "afterDelay",
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
-    "workbench.colorTheme": "Visual Studio Dark",
     "window.zoomLevel": 1,
 
     // Rmarkdown nao tem realce proprio; markdown chega perto o bastante.

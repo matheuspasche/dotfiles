@@ -60,17 +60,51 @@ if [ "$PERFIL_CARREGADO" = "0" ] && [ -z "$GRUPO" ]; then
 fi
 
 # --------------------------------------------------------------- repositorios
+# precisa_repo <id>
+#   Verdadeiro quando algum pacote que ESTE run vai instalar declara
+#   "repo: <id>" no manifesto. Evita que pedir um grupo so encha a maquina de
+#   repositorio alheio: "--grupo r" numa maquina de trabalho nao tem por que
+#   acrescentar o repositorio do VS Code nem o do Docker.
+precisa_repo() {
+  local alvo="$1" g id
+
+  while IFS= read -r g; do
+    [ -z "$g" ] && continue
+    while IFS= read -r id; do
+      [ -z "$id" ] && continue
+      # So conta se o pacote for mesmo instalavel neste gerenciador.
+      [ -z "$(manifesto_valor "$id" "$GER")" ] && continue
+      [ "$(manifesto_valor "$id" repo)" = "$alvo" ] && return 0
+    done < <(manifesto_ids "$g")
+  done < <(grupos_pedidos)
+
+  # O navegador nao vem por grupo: entra so o escolhido no perfil.
+  if [ "${NAVEGADOR:-nenhum}" != "nenhum" ] && [ -n "${NAVEGADOR:-}" ]; then
+    [ "$(manifesto_valor "$NAVEGADOR" repo)" = "$alvo" ] && return 0
+  fi
+
+  return 1
+}
+
 # Alguns pacotes so existem em repositorio de terceiro. Configurado antes de
 # qualquer instalacao, senao o gerenciador nao encontra o pacote.
+#
+# O RPM Fusion NAO entra aqui de proposito: nenhum pacote do manifesto precisa
+# dele para resolver (no Fedora 44 ate o vlc vem do repositorio oficial), e ele
+# e uma decisao de sistema -- codecs, drivers -- que ja tem dono e pergunta
+# propria no fedora-pos-instalacao.sh, sob FEDORA_RPMFUSION.
 configurar_repos() {
   if [ "$SIMULAR" = "1" ]; then
-    info "[simular] configuraria repositorios de terceiros"
+    local r
+    for r in vscode docker google-chrome brave; do
+      precisa_repo "$r" && info "[simular] configuraria o repositorio: $r"
+    done
     return 0
   fi
 
   if [ "$GER" = "dnf" ]; then
     # VS Code (repositorio da Microsoft)
-    if [ ! -f /etc/yum.repos.d/vscode.repo ]; then
+    if precisa_repo vscode && [ ! -f /etc/yum.repos.d/vscode.repo ]; then
       info "adicionando repositorio do VS Code"
       sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
       printf '%s\n' \
@@ -83,16 +117,35 @@ configurar_repos() {
         | sudo tee /etc/yum.repos.d/vscode.repo >/dev/null
     fi
 
-    # RPM Fusion: codecs e drivers que o Fedora nao distribui por licenca.
-    if ! rpm -q rpmfusion-free-release >/dev/null 2>&1; then
-      info "adicionando RPM Fusion"
-      sudo dnf install -y \
-        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
-        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+    # Google Chrome. O Fedora ja entrega o arquivo do repositorio pelo pacote
+    # fedora-workstation-repositories, so que desabilitado -- entao o certo e
+    # habilitar, nao escrever um .repo por cima.
+    if precisa_repo google-chrome; then
+      if [ -f /etc/yum.repos.d/google-chrome.repo ]; then
+        info "habilitando o repositorio do Google Chrome"
+        sudo dnf config-manager setopt google-chrome.enabled=1 ||
+          aviso "nao consegui habilitar o repositorio do Chrome"
+      else
+        info "instalando fedora-workstation-repositories (repositorio do Chrome)"
+        sudo dnf install -y fedora-workstation-repositories &&
+          sudo dnf config-manager setopt google-chrome.enabled=1 ||
+          aviso "nao consegui habilitar o repositorio do Chrome"
+      fi
+    fi
+
+    # Brave. Nao existe em repositorio de distribuicao nenhum; a propria Brave
+    # publica o arquivo .repo pronto, com a chave dela dentro.
+    if precisa_repo brave && [ ! -f /etc/yum.repos.d/brave-browser.repo ]; then
+      info "adicionando repositorio do Brave"
+      if ! sudo curl -fsSL https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo \
+             -o /etc/yum.repos.d/brave-browser.repo; then
+        sudo rm -f /etc/yum.repos.d/brave-browser.repo
+        aviso "nao foi possivel adicionar o repositorio do Brave"
+      fi
     fi
 
     # Docker CE (o docker do repositorio padrao do Fedora e o moby, mais velho)
-    if [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
+    if precisa_repo docker && [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
       info "adicionando repositorio do Docker"
       # Baixar o .repo direto e o que o "config-manager --add-repo" fazia. A
       # opcao foi removida no dnf5 (Fedora 41+), que quer "addrepo
@@ -116,7 +169,7 @@ configurar_repos() {
     fi
 
     # VS Code
-    if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
+    if precisa_repo vscode && [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
       info "adicionando repositorio do VS Code"
       curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
         | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
@@ -124,8 +177,8 @@ configurar_repos() {
         | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
     fi
 
-    # GitHub CLI
-    if [ ! -f /etc/apt/sources.list.d/github-cli.list ]; then
+    # GitHub CLI. So no apt: no Fedora o gh vem do repositorio oficial.
+    if precisa_repo github-cli && [ ! -f /etc/apt/sources.list.d/github-cli.list ]; then
       info "adicionando repositorio do GitHub CLI"
       curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg >/dev/null 2>&1
@@ -134,7 +187,7 @@ configurar_repos() {
     fi
 
     # Docker CE
-    if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
+    if precisa_repo docker && [ ! -f /etc/apt/sources.list.d/docker.list ]; then
       info "adicionando repositorio do Docker"
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
         | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
