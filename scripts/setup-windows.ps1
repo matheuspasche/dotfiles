@@ -49,8 +49,15 @@ if (-not (Test-Comando 'winget')) {
 
 if (-not (Test-Admin)) {
     Write-Aviso 'rodando sem privilegio de administrador.'
-    Write-Aviso 'Docker Desktop e o WSL exigem admin -- esses passos vao falhar.'
-    Write-Aviso 'Recomendado: fechar e reabrir o terminal como administrador.'
+    Write-Aviso 'O WSL (e o backend do Docker Desktop) exige admin -- esse passo vai ser pulado.'
+    Write-Aviso 'O resto do setup (winget, driver de GPU) nao precisa e roda normal.'
+    Write-Host  '    Para o WSL: feche este terminal, abra "Windows PowerShell" como'
+    Write-Host  '    administrador (botao direito -> Executar como administrador) e rode'
+    Write-Host  '    de novo -- o script e idempotente, o que ja foi instalado so e pulado.'
+    Write-Host  '    Confira antes se a virtualizacao esta ligada na BIOS:'
+    Write-Host  '        .\scripts\hardware.ps1'
+    Write-Host  '    (SVM Mode na AMD, Intel VT-x na Intel -- sem isso o WSL2 nao sobe'
+    Write-Host  '    nem rodando como administrador.)'
 }
 
 # ---------------------------------------------------------------------------
@@ -132,15 +139,109 @@ function Install-Scoop {
     try {
         # scoop instala no perfil do usuario, sem exigir admin.
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        # Invoke-Expression aqui e o metodo oficial de instalacao do scoop
-        # (get.scoop.sh). O PSScriptAnalyzer sinaliza, e esperado.
-        $instalador = Invoke-RestMethod -Uri 'https://get.scoop.sh'
-        Invoke-Expression $instalador
+
+        # Baixa para um arquivo e executa como script, em vez de
+        # Invoke-Expression numa string em memoria (o metodo que o proprio
+        # get.scoop.sh recomenda). Antivirus/EDR costuma bloquear IEX de
+        # conteudo baixado na hora -- padrao comum de malware -- com
+        # "System.Security.SecurityException: Erro de seguranca", mesmo com a
+        # ExecutionPolicy liberada. Um .ps1 de verdade passa pelo AMSI normal
+        # e nao esbarra nisso.
+        $instalador = Join-Path $env:TEMP 'scoop-install.ps1'
+        Invoke-RestMethod -Uri 'https://get.scoop.sh' -OutFile $instalador
+        & $instalador
+        Remove-Item -LiteralPath $instalador -Force -ErrorAction SilentlyContinue
+
         Write-Ok 'scoop instalado'
         return $true
     } catch {
         Write-Aviso "scoop falhou: $($_.Exception.Message)"
         return $false
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Driver de GPU -- so quando o stack "jogos" for pedido
+# ---------------------------------------------------------------------------
+
+# Nem AMD nem NVIDIA publicam o instalador completo do driver no winget
+# (conferido: "No package found matching input criteria." para
+# AMD.AMDSoftwareAdrenalinEdition, AMD.ChipsetSoftware e
+# Nvidia.GeForceExperience). Por isso cada fabricante recebe um caminho
+# proprio abaixo, em vez de um id de winget que nao existe.
+function Install-DriverGpu {
+    $info = Get-InfoGpu
+    Write-Info "GPU detectada: $($info.Modelo)"
+
+    switch ($info.Fabricante) {
+        'nvidia' {
+            # O "NVIDIA app" (substituiu o GeForce Experience) e distribuido
+            # pela Microsoft Store, e esse id e real.
+            if ($Simular) {
+                Write-Info '[simular] winget install XP8CLZL93F5Z4P --source msstore'
+                return
+            }
+            $codigo = Invoke-Nativo -Comando 'winget' -Silencioso -Argumentos @(
+                'install', '--id', 'XP8CLZL93F5Z4P', '--source', 'msstore',
+                '--accept-package-agreements', '--accept-source-agreements')
+            if ($codigo -eq 0) { Write-Ok 'NVIDIA app instalado' }
+            else { Write-Aviso "NVIDIA app falhou (codigo $codigo)" }
+        }
+        'amd' {
+            # Sem pacote no winget: baixa o instalador "auto-detect" direto do
+            # site oficial da AMD e abre. E um instalador grafico -- pede
+            # elevacao e passos manuais, nao tem como automatizar mais que
+            # isso sem contornar o instalador oficial do fabricante.
+            if ($Simular) {
+                Write-Info '[simular] baixaria e abriria o instalador Adrenalin da AMD'
+                return
+            }
+            $paginaSuporte = 'https://www.amd.com/en/support/download/drivers.html'
+            try {
+                Write-Info 'procurando o instalador atual da AMD (drivers.amd.com)'
+                $pagina = Invoke-WebRequest -Uri $paginaSuporte -UseBasicParsing -TimeoutSec 30
+                $link = $pagina.Links |
+                    Where-Object { $_.href -match '^https://drivers\.amd\.com/.*\.exe$' } |
+                    Select-Object -First 1 -ExpandProperty href
+
+                if (-not $link) {
+                    Write-Aviso 'nao achei o link do instalador na pagina da AMD'
+                    Write-Host  "    Baixe manualmente: $paginaSuporte"
+                    return
+                }
+
+                # drivers.amd.com rejeita o download sem Referer/User-Agent de
+                # navegador -- sem isso devolve uma pagina HTML de erro
+                # ("Download Not Complete") em vez do .exe, com o mesmo
+                # tamanho de qualquer download que desse certo, entao o erro
+                # so aparece quando o instalador roda.
+                $destino = Join-Path $env:TEMP (Split-Path -Leaf $link)
+                Write-Info "baixando $link"
+                Invoke-WebRequest -Uri $link -OutFile $destino -UseBasicParsing -TimeoutSec 300 `
+                    -Headers @{ 'Referer' = $paginaSuporte } `
+                    -UserAgent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+                Write-Ok "baixado: $destino"
+                Write-Info 'abrindo o instalador -- ele pede elevacao (UAC) e conduz o resto'
+                Start-Process -FilePath $destino
+            } catch {
+                Write-Aviso "nao consegui baixar/abrir o instalador da AMD: $($_.Exception.Message)"
+                Write-Host  "    Baixe manualmente: $paginaSuporte"
+            }
+        }
+        'intel' {
+            if ($Simular) {
+                Write-Info '[simular] winget install Intel.IntelDriverAndSupportAssistant'
+                return
+            }
+            $codigo = Invoke-Nativo -Comando 'winget' -Silencioso -Argumentos @(
+                'install', '--id', 'Intel.IntelDriverAndSupportAssistant', '--exact', '--silent',
+                '--accept-package-agreements', '--accept-source-agreements')
+            if ($codigo -eq 0) { Write-Ok 'Intel Driver & Support Assistant instalado' }
+            else { Write-Aviso "instalacao falhou (codigo $codigo)" }
+        }
+        default {
+            Write-Aviso 'GPU nao identificada -- pulando driver'
+        }
     }
 }
 
@@ -155,6 +256,10 @@ function Initialize-Wsl {
     }
     if (-not (Test-Admin)) {
         Write-Aviso 'WSL exige administrador -- pulando.'
+        Write-Host  '    Rode este script de novo numa janela "Executar como administrador".'
+        Write-Host  '    E idempotente: so instala o que ainda falta, o resto e pulado.'
+        Write-Host  '    Antes, confira a virtualizacao na BIOS com: .\scripts\hardware.ps1'
+        Write-Host  '    (sem SVM Mode/Intel VT-x ligado, o WSL2 nao sobe nem como admin.)'
         return
     }
 
@@ -230,6 +335,26 @@ if ($Grupo) {
             Write-Aviso "navegador '$($conf['NAVEGADOR'])' nao encontrado no manifesto"
         }
     }
+
+    # Suite de escritorio: mesma logica do navegador -- so entra quando o
+    # stack "escritorio" foi pedido, e so a(s) escolhida(s) em
+    # SUITE_ESCRITORIO. Sem escolha no perfil, o padrao do Windows e o
+    # Microsoft 365, que ja e a suite nativa por aqui.
+    if ($stacks -contains 'escritorio') {
+        $todasSuites = Get-PacotesPara -Gerenciador winget -Grupo 'suite-escritorio'
+        $escolha = $conf['SUITE_ESCRITORIO']
+        if (-not $escolha) { $escolha = 'microsoft365' }
+        $idsEscolhidos = if ($escolha -eq 'tudo') { $todasSuites.id } else { $escolha -split '\s+' | Where-Object { $_ } }
+        foreach ($id in $idsEscolhidos) {
+            $suite = $todasSuites | Where-Object { $_.id -eq $id }
+            if ($suite) {
+                $pacotes += $suite
+                Write-Info "suite de escritorio: $id"
+            } else {
+                Write-Aviso "suite de escritorio '$id' nao encontrada no manifesto"
+            }
+        }
+    }
 }
 
 if ($pacotes.Count -eq 0) {
@@ -283,9 +408,24 @@ if (-not $PularWsl -and $querWsl) {
     Write-Ok 'WSL nao solicitado pelo perfil -- pulando'
 }
 
+# Driver de GPU: mesma logica de "so entra se fizer sentido para o pedido".
+$querDriverGpu = $false
+if ($Grupo) {
+    $querDriverGpu = ($Grupo -eq 'jogos')
+} else {
+    $stacksJogos = $conf['STACKS'] -split '\s+' | Where-Object { $_ }
+    $querDriverGpu = ($stacksJogos -contains 'jogos')
+}
+if ($querDriverGpu) { Install-DriverGpu }
+
 Write-Host ''
 Write-Info 'setup concluido. Proximos passos:'
 Write-Host  '  1. feche e reabra o terminal (PATH mudou)'
 Write-Host  '  2. .\install.ps1            -- aplica gitconfig, VS Code e Makevars'
 Write-Host  '  3. gh auth login            -- reautentica o GitHub'
 Write-Host  '  4. scripts\cofre.ps1 -Abrir -- restaura o cofre de segredos'
+
+# Sem isso, o codigo de saida do script e o $LASTEXITCODE do ultimo comando
+# nativo chamado (winget/wsl) -- que pode ser diferente de zero mesmo num
+# setup bem-sucedido, e derruba quem encadeia este script com "if ($?)" ou "&&".
+exit 0

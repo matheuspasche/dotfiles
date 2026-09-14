@@ -322,7 +322,7 @@ validar_grupos() {
 instalar_pacotes() {
   local -a lista=()
   local -a grupos=()
-  local g pkg
+  local g pkg s suites
 
   while IFS= read -r g; do
     [ -n "$g" ] && grupos+=("$g")
@@ -348,6 +348,26 @@ instalar_pacotes() {
       aviso "navegador '$NAVEGADOR' nao disponivel para $GER -- veja docs/"
     fi
   fi
+
+  # Suite de escritorio: mesma logica do navegador. So entra quando o stack
+  # "escritorio" foi pedido. Sem escolha no perfil (SUITE_ESCRITORIO vazio),
+  # usa o padrao do Linux: LibreOffice, de graca e ja no repositorio.
+  case " ${grupos[*]} " in
+    *' escritorio '*)
+      local suites="$SUITE_ESCRITORIO"
+      [ -z "$suites" ] && suites="libreoffice"
+      [ "$suites" = "tudo" ] && suites="libreoffice onlyoffice microsoft365"
+      for s in $suites; do
+        pkg="$(manifesto_valor "$s" "$GER")"
+        if [ -n "$pkg" ]; then
+          lista+=("$pkg")
+          info "suite de escritorio: $s ($pkg)"
+        else
+          aviso "suite de escritorio '$s' nao disponivel para $GER"
+        fi
+      done
+      ;;
+  esac
 
   # O pacote de JDK pode ter saido do repositorio desde a ultima vez que o
   # manifesto foi atualizado (ver resolver_java acima). So mexe em quem bate

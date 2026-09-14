@@ -179,15 +179,20 @@ pacotes:
     # A Epic nao publica launcher para Linux. O Heroic e o cliente que a
     # comunidade usa no lugar: faz login na conta Epic, baixa os jogos e roda
     # por Proton. E tambem o caminho para GOG e Amazon Games.
+    #
+    # So entra no Linux. No Windows e no macOS o app oficial da Epic (abaixo)
+    # ja existe e funciona nativo -- nao ha wrapper nenhum la, como o README
+    # documenta. Instalar o Heroic tambem nessas plataformas duplicaria o
+    # launcher da Epic sem necessidade.
     flatpak: com.heroicgameslauncher.hgl
     apelido: Epic Games
     apelido_icone: epic-games
     linux: avulso
     dnf: "-"
     apt: "-"
-    brew: heroic
-    cask: "sim"
-    winget: HeroicGamesLauncher.HeroicGamesLauncher
+    brew: "-"
+    cask: "-"
+    winget: "-"
     scoop: "-"
 
   - id: epic
@@ -296,9 +301,16 @@ pacotes:
   # escritorio -----------------------------------------------------------
   # documentos e planilhas
 
+  # "suite-escritorio" nao e um stack: como o grupo "navegador", tem as
+  # opcoes de suite de escritorio e o usuario escolhe uma (ou "tudo") em
+  # SUITE_ESCRITORIO no perfil.conf. Tratado como stack normal, o "escritorio"
+  # instalaria as tres suites de uma vez. Sem escolha no perfil, o setup usa
+  # o padrao do sistema: Microsoft 365 no Windows (ja e a suite nativa la),
+  # LibreOffice em Linux/macOS (o padrao das distribuicoes, sem custo).
+
   - id: libreoffice
     nome: LibreOffice
-    grupo: escritorio
+    grupo: suite-escritorio
     dnf: libreoffice
     apt: libreoffice
     brew: libreoffice
@@ -308,7 +320,7 @@ pacotes:
 
   - id: onlyoffice
     nome: ONLYOFFICE Desktop Editors
-    grupo: escritorio
+    grupo: suite-escritorio
     # No Fedora vem por Flatpak; o setup-linux.sh cuida disso.
     flatpak: org.onlyoffice.desktopeditors
     linux: avulso
@@ -321,7 +333,7 @@ pacotes:
 
   - id: microsoft365
     nome: Microsoft 365 (exige assinatura)
-    grupo: escritorio
+    grupo: suite-escritorio
     # Sem equivalente nativo no Linux -- la o caminho e a versao web ou o
     # LibreOffice. O setup avisa em vez de falhar.
     linux: nao
@@ -370,17 +382,6 @@ pacotes:
     brew: "-"
     winget: "-"
     scoop: "-"
-
-  - id: btop
-    nome: btop (monitor de recursos no terminal)
-    grupo: produtividade
-    # Complementa o monitor grafico: 1 MiB, sem dependencia de desktop, entao
-    # serve tambem em WSL e em maquina sem interface.
-    dnf: btop
-    apt: btop
-    brew: btop
-    winget: btop.btop
-    scoop: btop
 
   - id: flameshot
     nome: Flameshot (captura de tela com anotacao)
@@ -614,7 +615,7 @@ pacotes:
     apt: "-"
     brew: dbeaver-community
     cask: "sim"
-    winget: dbeaver.dbeaver
+    winget: DBeaver.DBeaver.Community
     scoop: dbeaver
 
   - id: duckdb

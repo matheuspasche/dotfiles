@@ -42,16 +42,9 @@ $hyperv = Get-CimInstance Win32_ComputerSystem
 if ($hyperv.HypervisorPresent) { $virtualizacao = 'sim' }
 
 # --------------------------------------------------------------------- GPU ---
-$gpus = @(Get-CimInstance Win32_VideoController)
-$gpuPrincipal = $gpus | Select-Object -First 1
-$gpuModelo = 'desconhecido'
-$gpuFabricante = 'desconhecido'
-if ($gpuPrincipal) {
-    $gpuModelo = $gpuPrincipal.Name
-    if ($gpuModelo -match 'AMD|Radeon') { $gpuFabricante = 'amd' }
-    if ($gpuModelo -match 'NVIDIA')     { $gpuFabricante = 'nvidia' }
-    if ($gpuModelo -match 'Intel')      { $gpuFabricante = 'intel' }
-}
+$infoGpu = Get-InfoGpu
+$gpuModelo = $infoGpu.Modelo
+$gpuFabricante = $infoGpu.Fabricante
 
 # ---------------------------------------------------------------- placa-mae --
 $placa = Get-CimInstance Win32_BaseBoard
@@ -124,12 +117,17 @@ switch ($gpuFabricante) {
     'amd' {
         Write-Ok 'GPU AMD'
         Write-Host '      O Windows Update entrega um driver basico. Para jogos e'
-        Write-Host '      aceleracao completa, use o pacote da AMD:'
-        Write-Host '        winget install AMD.AMDSoftwareAdrenalinEdition'
+        Write-Host '      aceleracao completa, use o driver Adrenalin -- a AMD nao'
+        Write-Host '      publica esse instalador no winget, so no site oficial:'
+        Write-Host '        https://www.amd.com/pt/support (autodetectar hardware)'
+        Write-Host '      Ou peca o stack "jogos": .\scripts\setup-windows.ps1 -Grupo jogos'
+        Write-Host '      baixa e abre esse instalador sozinho.'
     }
     'nvidia' {
         Write-Ok 'GPU NVIDIA'
-        Write-Host '        winget install Nvidia.GeForceExperience'
+        Write-Host '      NVIDIA app (driver + overlay + DLSS), pela Microsoft Store:'
+        Write-Host '        winget install XP8CLZL93F5Z4P --source msstore'
+        Write-Host '      (o stack "jogos" ja faz isso sozinho)'
         Write-Host '      Para CUDA (treino de modelo na GPU):'
         Write-Host '        winget install Nvidia.CUDA'
     }
@@ -152,8 +150,12 @@ if ($placaModelo -match 'Gigabyte') {
     Write-Host '      MSI: MSI Center.'
 }
 if ($cpuFabricante -eq 'amd') {
+    # Nem "AMD.ChipsetSoftware" nem nenhum outro pacote de chipset AMD existe
+    # no winget (conferido: "No package found matching input criteria."). O
+    # instalador universal da AMD so esta no site oficial, e detecta sozinho
+    # qual chipset (B450, X570...) esta na placa.
     Write-Host '      Chipset AMD (necessario para o gerenciamento de energia correto):'
-    Write-Host '        winget install AMD.ChipsetSoftware'
+    Write-Host '        https://www.amd.com/pt/support/download/drivers.html (chipset)'
 }
 
 # --- bluetooth ---
@@ -178,3 +180,4 @@ Write-Host '      Resposta 0 significa TRIM ativo.'
 
 Write-Host ''
 Write-Info 'Nada acima foi executado -- sao sugestoes para este hardware.'
+exit 0
