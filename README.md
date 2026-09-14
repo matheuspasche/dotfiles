@@ -49,6 +49,11 @@ cd dotfiles
 .\scripts\setup-r.ps1
 ```
 
+Primeira vez no Windows? Leia
+[docs/windows-primeiros-passos.md](docs/windows-primeiros-passos.md) --
+WSL2/Docker exigem administrador e BIOS com virtualizacao ligada, entre
+outras armadilhas ja verificadas.
+
 ### macOS
 
 ```bash
@@ -99,6 +104,12 @@ O navegador fica **fora** da tabela de proposito: voce escolhe um em
 `NAVEGADOR` no `perfil.conf` (Firefox, Chrome ou Brave) e o setup instala so
 esse. Pedir `navegador` como stack instalaria os tres.
 
+A suite de escritorio funciona igual, dentro do stack `escritorio`: voce
+escolhe uma em `SUITE_ESCRITORIO` (`libreoffice`, `onlyoffice`,
+`microsoft365` ou `tudo`), e nao as tres de uma vez. Vazio usa o padrao do
+sistema -- LibreOffice em Linux/macOS, Microsoft 365 no Windows, que ja e a
+suite nativa por la (exige assinatura; sem ela, escolha `libreoffice`).
+
 A ordem da tabela e a ordem de necessidade. O criterio para decidir onde uma
 coisa entra e: **"se eu fosse formatar o computador de alguem que nao
 programa, isso entraria?"**
@@ -123,7 +134,18 @@ Daylight, Marvel Rivals e Genshin Impact. Confira antes de comprar em
 
 A Epic nao publica launcher para Linux: quem faz esse papel e o **Heroic**,
 que loga na sua conta Epic e baixa os jogos. O **EA app** tambem nao existe
-para Linux — jogos da EA rodam por Proton, pelo Steam ou pelo Heroic.
+para Linux — jogos da EA rodam por Proton, pelo Steam ou pelo Heroic. No
+Windows e no macOS o Heroic nao entra: o app oficial da Epic (abaixo) ja
+existe e funciona nativo, sem precisar de wrapper nenhum.
+
+**Driver de GPU no Windows, so com o stack `jogos`:** nem AMD nem NVIDIA
+publicam o instalador completo do driver no winget, entao o
+`setup-windows.ps1` resolve por fora: baixa e abre o instalador oficial
+("Adrenalin" da AMD, direto de `drivers.amd.com`) ou instala o app da NVIDIA
+pela Microsoft Store. Nos dois casos e so quando o stack `jogos` foi
+escolhido -- o `hardware.ps1` sozinho so detecta e sugere, nunca instala.
+O instalador da AMD e grafico e pede elevacao (UAC); o resto do wizard e
+manual.
 
 **WhatsApp no Linux:** a Meta nao publica cliente de desktop para Linux. O
 kit instala o [ZapZap](https://github.com/zapzap-linux/zapzap) do Flathub, um
@@ -246,6 +268,7 @@ proprietario, e fone Bluetooth sem os codecs cai no SBC.
 | `scripts/cofre.{sh,ps1}` | Cofre cifrado de credenciais (`age`) |
 | `scripts/tema-kde.sh` | Tema e papel de parede do KDE (opcional, fora do fluxo) |
 | `docs/fedora-kde-primeiros-passos.md` | Primeira vez no Fedora KDE |
+| `docs/windows-primeiros-passos.md` | Primeira vez no Windows: WSL, drivers, winget |
 | `docs/nvme-morreu.md` | Recuperacao de emergencia em menos de uma hora |
 | `docs/spark-no-windows.md` | As tres armadilhas do PySpark no Windows |
 | `docs/checklist-migracao.md` | Roteiro de formatacao planejada |
