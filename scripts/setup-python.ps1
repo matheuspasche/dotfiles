@@ -136,8 +136,13 @@ if ($Verificar) {
     if (-not (Test-Path -LiteralPath $py)) { $py = 'python' }
     Write-Host ''
     Write-Info 'diagnostico do ambiente Python'
-    & $py (Join-Path $raiz 'scripts\py\verificar.py')
-    exit $LASTEXITCODE
+    # Invoke-Nativo, nao "&" direto: qualquer linha em stderr do Python (um
+    # DeprecationWarning de biblioteca, por exemplo) vira excecao fatal sob
+    # $ErrorActionPreference = 'Stop' (ligado no topo deste script), mesmo
+    # quando o diagnostico inteiro passou -- exatamente o que Invoke-Nativo
+    # existe para evitar. Ja mordeu de verdade o mesmo bloco em setup-r.ps1.
+    $codigo = Invoke-Nativo -Comando $py -Argumentos @((Join-Path $raiz 'scripts\py\verificar.py'))
+    exit $codigo
 }
 
 # ---------------------------------------------------------------------------
@@ -271,3 +276,4 @@ Write-Ok 'setup do Python concluido.'
 Write-Host "    ambiente:  $venv"
 Write-Host "    ativar:    & '$venv\Scripts\Activate.ps1'"
 Write-Host "    conferir:  .\scripts\setup-python.ps1 -Verificar"
+exit 0

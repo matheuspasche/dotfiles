@@ -81,22 +81,35 @@ cat(sprintf("==> %d de %d pacotes a instalar: %s\n",
 # --- instalacao -------------------------------------------------------------
 # Um pacote que falha nao deve derrubar os outros: o tryCatch por pacote troca
 # "nada instalou" por "faltou um", que e muito mais facil de resolver depois.
+#
+# A verificacao NAO usa requireNamespace(): isso carregaria a DLL do pacote
+# nesta mesma sessao de R, que fica viva ate o fim do loop inteiro. No
+# Windows uma DLL carregada nao pode ser substituida -- e como varios
+# pacotes da lista dependem de glue/Rcpp, o primeiro requireNamespace(glue)
+# trava a versao carregada, e todo pacote seguinte que pede reinstalar/
+# atualizar glue ou Rcpp falha com "nao foi possivel remover a instalacao
+# previa", derrubando em cascata tudo que depende deles (aconteceu de
+# verdade: 16 pacotes por causa so de glue e Rcpp). installed.packages() so
+# le o cadastro em disco, sem carregar nada -- verifica que a instalacao
+# aconteceu sem esse efeito colateral.
+esta_instalado <- function(pacote) {
+  pacote %in% rownames(installed.packages(lib.loc = .libPaths()[1]))
+}
+
 falhas <- character(0)
 
 for (pacote in faltando) {
   cat(sprintf("\n--- %s ---\n", pacote))
   resultado <- tryCatch({
     install.packages(pacote, quiet = FALSE)
-    # install.packages nao devolve erro quando falha; a unica verificacao
-    # confiavel e perguntar depois se o pacote pode ser carregado.
-    if (!requireNamespace(pacote, quietly = TRUE)) stop("nao carregou apos instalar")
+    if (!esta_instalado(pacote)) stop("nao apareceu no cadastro de pacotes apos instalar")
     TRUE
   }, error = function(e) {
     cat(sprintf("erro em %s: %s\n", pacote, conditionMessage(e)))
     FALSE
   }, warning = function(w) {
     cat(sprintf("aviso em %s: %s\n", pacote, conditionMessage(w)))
-    requireNamespace(pacote, quietly = TRUE)
+    esta_instalado(pacote)
   })
   if (!isTRUE(resultado)) falhas <- c(falhas, pacote)
 }

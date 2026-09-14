@@ -170,7 +170,13 @@ if (-not $rtools) {
         $prefixo = ''
         if ($atual -and -not $atual.EndsWith("`n")) { $prefixo = "`r`n" }
         $bloco = "$prefixo`r`n# Rtools no PATH do R -- acrescentado por scripts/setup-r.ps1`r`n$linha`r`n"
-        Add-Content -LiteralPath $renviron -Value $bloco -Encoding UTF8 -NoNewline
+        # "-Encoding UTF8" no Windows PowerShell 5.1 sempre grava BOM, mesmo
+        # num arquivo novo -- e o parser de .Renviron do R nao reconhece o
+        # BOM como parte da primeira linha, e avisa "contains invalid
+        # line(s)" toda vez que roda (inofensivo, mas polui a saida). UTF8
+        # sem BOM via .NET funciona igual em PowerShell 5.1 e 7+.
+        $utf8SemBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::AppendAllText($renviron, $bloco, $utf8SemBom)
         Write-Ok "Rtools acrescentado ao $renviron"
     }
 }
@@ -184,7 +190,12 @@ if (-not $nucleos -or $nucleos -lt 1) { $nucleos = 2 }
 # Deixa um nucleo livre: compilar com todos trava a maquina por 20 minutos.
 $j = [math]::Max(1, $nucleos - 1)
 
-$pastaR = Join-Path $env:USERPROFILE 'Documents\.R'
+# Mesma pasta "Documentos" especial usada acima para o .Renviron -- NAO
+# "$env:USERPROFILE\Documents" no caminho literal, que diverge dela quando o
+# OneDrive redireciona Documentos (comum no Windows 11). As duas secoes
+# gravando em lugares diferentes e o tipo de bug que some sem erro nenhum:
+# o script relata sucesso, mas ajusta um Makevars.win que o R nunca le.
+$pastaR = Join-Path ([Environment]::GetFolderPath('MyDocuments')) '.R'
 $makevars = Join-Path $pastaR 'Makevars.win'
 
 if ($Simular) {
@@ -193,7 +204,10 @@ if ($Simular) {
     $conteudo = Get-Content -LiteralPath $makevars -Raw
     $novo = $conteudo -replace 'MAKEFLAGS\s*=\s*-j\d+', "MAKEFLAGS = -j$j"
     if ($novo -ne $conteudo) {
-        Set-Content -LiteralPath $makevars -Value $novo -Encoding UTF8
+        # UTF8 sem BOM (ver comentario na secao do .Renviron acima): make
+        # nao espera BOM num Makevars e pode nem reportar o motivo do erro.
+        $utf8SemBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($makevars, $novo, $utf8SemBom)
         Write-Ok "MAKEFLAGS ajustado para -j$j ($nucleos nucleos fisicos)"
     } else {
         Write-Ok "MAKEFLAGS ja esta em -j$j"
@@ -209,8 +223,13 @@ if ($Simular) {
 if ($Verificar) {
     Write-Host ''
     Write-Info 'diagnostico do ambiente R'
-    & $rscript (Join-Path $raiz 'scripts\r\verificar.R')
-    exit $LASTEXITCODE
+    # Invoke-Nativo, nao "&" direto: o R escreve aviso rotineiro em stderr (o
+    # BOM do .Renviron, por exemplo), e sob $ErrorActionPreference = 'Stop'
+    # (ligado no topo deste script) isso vira excecao fatal mesmo quando o
+    # diagnostico inteiro passou -- exatamente o que Invoke-Nativo existe
+    # para evitar.
+    $codigo = Invoke-Nativo -Comando $rscript -Argumentos @((Join-Path $raiz 'scripts\r\verificar.R'))
+    exit $codigo
 }
 
 $perfil = Get-Perfil
@@ -264,15 +283,19 @@ if ($emSegundoPlano) {
     Write-Host "    log:  $log"
     Write-Host "    siga: Get-Content '$log' -Wait -Tail 20"
     Write-Host "    depois: .\scripts\setup-r.ps1 -Verificar"
+    exit 0
 } else {
-    & $rscript $instalador @pacotes
-    $codigo = $LASTEXITCODE
+    # Invoke-Nativo, nao "&" direto -- ver o comentario no bloco -Verificar
+    # acima sobre stderr de R virando excecao fatal sob ErrorActionPreference
+    # 'Stop'.
+    $codigo = Invoke-Nativo -Comando $rscript -Argumentos (@($instalador) + $pacotes)
     Write-Host ''
     if ($codigo -eq 0) {
         Write-Ok 'bibliotecas instaladas'
-        & $rscript (Join-Path $raiz 'scripts\r\verificar.R')
+        Invoke-Nativo -Comando $rscript -Argumentos @((Join-Path $raiz 'scripts\r\verificar.R')) | Out-Null
     } else {
         Write-Aviso 'alguns pacotes falharam -- veja a saida acima'
         exit $codigo
     }
 }
+exit 0
