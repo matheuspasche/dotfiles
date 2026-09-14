@@ -25,6 +25,31 @@ function Write-Ok    { param([string]$Mensagem) Write-Host " ok  $Mensagem" -For
 function Write-Aviso { param([string]$Mensagem) Write-Host "aviso $Mensagem" -ForegroundColor Yellow }
 function Write-Erro  { param([string]$Mensagem) Write-Host "erro  $Mensagem" -ForegroundColor Red }
 
+# -------------------------------------------------------------------- GPU ---
+# Devolve o modelo (Name do WMI) e o fabricante ('amd' | 'nvidia' | 'intel' |
+# 'desconhecido') da GPU principal. Le Win32_VideoController, que e
+# informacao de hardware (PCI vendor/device ID) -- funciona mesmo sem o
+# driver do fabricante instalado, so com o driver generico do Windows.
+#
+# Usado por hardware.ps1 (so relatorio) e setup-windows.ps1 (instala o
+# driver quando o stack "jogos" for pedido) -- uma fonte so para os dois nao
+# divergirem sobre qual e a GPU.
+function Get-InfoGpu {
+    $gpus = @(Get-CimInstance Win32_VideoController)
+    $principal = $gpus | Select-Object -First 1
+
+    $modelo = 'desconhecido'
+    $fabricante = 'desconhecido'
+    if ($principal) {
+        $modelo = $principal.Name
+        if ($modelo -match 'AMD|Radeon') { $fabricante = 'amd' }
+        if ($modelo -match 'NVIDIA')     { $fabricante = 'nvidia' }
+        if ($modelo -match 'Intel')      { $fabricante = 'intel' }
+    }
+
+    return [pscustomobject]@{ Modelo = $modelo; Fabricante = $fabricante }
+}
+
 # --------------------------------------------------------------- ambiente ---
 # Verdadeiro quando o processo atual tem privilegio de administrador.
 function Test-Admin {
@@ -192,6 +217,8 @@ function Get-Perfil {
         LIBS_R = ''; LIBS_PY = ''
         LIBS_EM_SEGUNDO_PLANO = 'sim'
         NAVEGADOR = 'nenhum'
+        # Vazio = padrao do sistema (ver Initialize-Pacotes em setup-windows.ps1).
+        SUITE_ESCRITORIO = ''
         VSCODE_EXTENSOES = 'base'
         FEDORA_RPMFUSION = 'sim'; FEDORA_CODECS = 'sim'; FEDORA_GPU = 'sim'
         FEDORA_FIRMWARE = 'sim'; FEDORA_FONTES_MS = 'nao'; FEDORA_DNF_RAPIDO = 'sim'

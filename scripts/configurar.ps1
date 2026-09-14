@@ -88,16 +88,19 @@ $gitEmail = Read-Texto '   Seu e-mail' $conf['GIT_EMAIL']
 
 # ------------------------------------------------------------------ stacks ---
 $stacks = Read-Lista '2. Que stacks voce usa?' $conf['STACKS'] @(
-    @{ id = 'base';          desc = 'git, curl, busca -- o minimo' }
-    @{ id = 'editor';        desc = 'VS Code e Node' }
-    @{ id = 'python';        desc = 'Python e uv' }
-    @{ id = 'r';             desc = 'R, RStudio e Rtools' }
-    @{ id = 'dados';         desc = 'DBeaver, DuckDB' }
-    @{ id = 'jvm';           desc = 'JDK 17 (requisito do Spark)' }
-    @{ id = 'container';     desc = 'Docker Desktop' }
+    @{ id = 'base';          desc = 'curl e o terminal -- o minimo de QUALQUER maquina' }
+    @{ id = 'pessoal';       desc = 'Spotify, WhatsApp, VLC' }
+    @{ id = 'jogos';         desc = 'Steam, Heroic (Epic/GOG), Epic, EA app' }
     @{ id = 'escritorio';    desc = 'LibreOffice, OnlyOffice, Microsoft 365' }
     @{ id = 'produtividade'; desc = 'PowerToys, Everything, Flameshot' }
-    @{ id = 'opcional';      desc = 'VLC, Obsidian, Syncthing' }
+    @{ id = 'opcional';      desc = 'Obsidian, Syncthing' }
+    @{ id = 'dev';           desc = 'git, gh, ripgrep, fd, jq, age' }
+    @{ id = 'editor';        desc = 'VS Code, Claude Code e Node' }
+    @{ id = 'python';        desc = 'Python e uv' }
+    @{ id = 'r';             desc = 'R, RStudio, Quarto e toolchain de compilacao' }
+    @{ id = 'dados';         desc = 'DBeaver, DuckDB' }
+    @{ id = 'jvm';           desc = 'JDK 17 (requisito do Spark)' }
+    @{ id = 'container';     desc = 'Docker Desktop (e WSL2)' }
 )
 $listaStacks = $stacks -split '\s+' | Where-Object { $_ }
 
@@ -137,6 +140,30 @@ switch ($navegador) {
     '2' { $navegador = 'chrome' }
     '3' { $navegador = 'brave' }
     '4' { $navegador = 'nenhum' }
+}
+
+# ------------------------------------------------------- suite de escritorio -
+# So pergunta para quem marcou o stack "escritorio" -- mesma logica da
+# identidade e das extensoes: perguntar isso de quem nao vai usar so confunde.
+$suiteEscritorio = $conf['SUITE_ESCRITORIO']
+if ($listaStacks -contains 'escritorio') {
+    Write-Host ''
+    Write-Info '5b. Suite de escritorio'
+    Write-Host '   1) libreoffice    de graca, ja no repositorio'
+    Write-Host '   2) onlyoffice     melhor fidelidade a .docx/.xlsx'
+    Write-Host '   3) microsoft365   exige assinatura (padrao no Windows)'
+    Write-Host '   4) tudo           instala as tres'
+    $padraoSuite = $suiteEscritorio
+    if (-not $padraoSuite) { $padraoSuite = 'microsoft365' }
+    $suiteEscritorio = Read-Texto '   Escolha (nome ou numero)' $padraoSuite
+    switch ($suiteEscritorio) {
+        '1' { $suiteEscritorio = 'libreoffice' }
+        '2' { $suiteEscritorio = 'onlyoffice' }
+        '3' { $suiteEscritorio = 'microsoft365' }
+        '4' { $suiteEscritorio = 'tudo' }
+    }
+} else {
+    $suiteEscritorio = ''
 }
 
 # --------------------------------------------------------------- extensoes ---
@@ -188,6 +215,9 @@ LIBS_EM_SEGUNDO_PLANO="$segundoPlano"
 # --- navegador ---
 NAVEGADOR="$navegador"
 
+# --- escritorio ---
+SUITE_ESCRITORIO="$suiteEscritorio"
+
 # --- editor ---
 VSCODE_EXTENSOES="$vscode"
 
@@ -225,6 +255,7 @@ $mostrarPy = $libsPy; if (-not $mostrarPy) { $mostrarPy = 'nenhum' }
 Write-Host "    R            $mostrarR"
 Write-Host "    Python       $mostrarPy"
 Write-Host "    navegador    $navegador"
+if ($suiteEscritorio) { Write-Host "    escritorio   $suiteEscritorio" }
 if ($minutos -gt 0) { Write-Host "    bibliotecas  ~$minutos min de instalacao" }
 
 Write-Host ''
@@ -234,3 +265,4 @@ Write-Host '    2. .\scripts\setup-windows.ps1   programas do manifesto e WSL2'
 Write-Host '    3. .\install.ps1 -Extensoes      configuracoes e extensoes'
 if ($libsR)  { Write-Host '    4. .\scripts\setup-r.ps1         bibliotecas de R' }
 if ($libsPy) { Write-Host '    5. .\scripts\setup-python.ps1    bibliotecas de Python' }
+exit 0

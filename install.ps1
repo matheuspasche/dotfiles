@@ -16,16 +16,23 @@
     Tambem instala as extensoes do VS Code listadas em
     config/vscode/extensions.txt.
 
+.PARAMETER Apenas
+    Aplica so as areas listadas (entre aspas se for mais de uma), ignorando
+    o que o perfil.conf pediria. Areas: git, vscode, r.
+    Ex.: -Apenas r          -Apenas "git r"
+
 .PARAMETER Simular
     Mostra o que seria feito sem escrever nada.
 
 .EXAMPLE
     .\install.ps1
     .\install.ps1 -Extensoes
+    .\install.ps1 -Apenas r
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$Extensoes,
+    [string]$Apenas,
     [switch]$Simular
 )
 
@@ -36,12 +43,44 @@ $ErrorActionPreference = 'Stop'
 
 $conf = Get-Perfil
 
+# Areas de configuracao aplicaveis. Sem -Apenas, seguem o perfil: nao ha por
+# que escrever um ~/.gitconfig numa maquina que nao pediu o stack "dev", nem
+# settings do VS Code sem o stack "editor", nem Makevars sem o stack "r".
+# Sem perfil nenhum, aplica todas -- quem roda o install.ps1 cru esta pedindo
+# o kit inteiro. Mesma logica do install.sh (sem a area "kde", que nao existe
+# no Windows).
+$areasValidas = @('git', 'vscode', 'r')
+$areas = New-Object System.Collections.Generic.List[string]
+
+if ($Apenas) {
+    foreach ($a in ($Apenas -split '\s+' | Where-Object { $_ })) {
+        if ($areasValidas -notcontains $a) {
+            throw "area desconhecida: $a (validas: $($areasValidas -join ' '))"
+        }
+        $areas.Add($a)
+    }
+} elseif ($conf['_CARREGADO']) {
+    $stacksPerfil = $conf['STACKS'] -split '\s+' | Where-Object { $_ }
+    if ($stacksPerfil -contains 'dev')    { $areas.Add('git') }
+    if ($stacksPerfil -contains 'editor') { $areas.Add('vscode') }
+    if ($stacksPerfil -contains 'r')      { $areas.Add('r') }
+} else {
+    $areas.AddRange([string[]]$areasValidas)
+}
+
+# Test-Area <nome> -- verdadeiro quando aquela area deve ser aplicada.
+function Test-Area {
+    param([Parameter(Mandatory)][string]$Nome)
+    return $areas.Contains($Nome)
+}
+
 if ($Simular) { Write-Aviso 'modo simulacao: nada sera escrito' }
 
 $raiz = $script:DotfilesRaiz
 $perfil = $env:USERPROFILE
 Write-Info "kit:    $raiz"
 Write-Info "perfil: $perfil"
+Write-Info "areas:  $(if ($areas.Count) { $areas -join ' ' } else { '(nenhuma)' })"
 
 # Envolve New-Ligacao para respeitar o -Simular deste script.
 function Aplicar {
@@ -56,6 +95,8 @@ function Aplicar {
 # ---------------------------------------------------------------------------
 # Git
 # ---------------------------------------------------------------------------
+
+if (Test-Area 'git') {
 
 Aplicar -Origem (Join-Path $raiz 'config\gitconfig') `
         -Destino (Join-Path $perfil '.gitconfig') `
@@ -101,9 +142,13 @@ if (-not (Test-Path -LiteralPath $local)) {
     Write-Ok "ja existe: $local"
 }
 
+}  # Test-Area git
+
 # ---------------------------------------------------------------------------
 # VS Code
 # ---------------------------------------------------------------------------
+
+if (Test-Area 'vscode') {
 
 $vscodeUser = Join-Path $env:APPDATA 'Code\User'
 Aplicar -Origem (Join-Path $raiz 'config\vscode\settings.json') `
@@ -117,13 +162,24 @@ if (Test-Path -LiteralPath $keybindings) {
             -Rotulo 'VS Code keybindings.json'
 }
 
+}  # Test-Area vscode
+
 # ---------------------------------------------------------------------------
 # R / Rcpp
 # ---------------------------------------------------------------------------
 
-# No Windows o R procura Makevars.win em %USERPROFILE%\Documents\.R\, nao em
-# ~/.R como no Linux. Diferenca que costuma custar uma tarde de depuracao.
-$pastaR = Join-Path $perfil 'Documents\.R'
+if (Test-Area 'r') {
+
+# No Windows o R procura Makevars.win em Documentos\.R\, nao em ~/.R como no
+# Linux. E "Documentos" aqui e a pasta especial do Windows (a mesma que
+# setup-r.ps1 usa para o .Renviron do Rtools) -- NAO necessariamente
+# "%USERPROFILE%\Documents" no caminho literal: com o OneDrive fazendo
+# "Backup de Pastas Conhecidas" (padrao em varias instalacoes do Windows 11),
+# a pasta real vira "%USERPROFILE%\OneDrive\Documentos" (ou "Documents",
+# dependendo do idioma). Gravar no caminho fixo escreve num lugar que o R
+# nunca olha, e o Rcpp acaba compilando com as flags erradas sem aviso nenhum.
+$documentos = [Environment]::GetFolderPath('MyDocuments')
+$pastaR = Join-Path $documentos '.R'
 if (-not $Simular -and -not (Test-Path -LiteralPath $pastaR)) {
     New-Item -ItemType Directory -Path $pastaR -Force | Out-Null
 }
@@ -135,16 +191,27 @@ Aplicar -Origem (Join-Path $raiz 'config\Makevars.win') `
 $rprofile = Join-Path $raiz 'config\Rprofile'
 if (Test-Path -LiteralPath $rprofile) {
     Aplicar -Origem $rprofile `
-            -Destino (Join-Path $perfil 'Documents\.Rprofile') `
+            -Destino (Join-Path $documentos '.Rprofile') `
             -Rotulo '.Rprofile'
 }
+
+}  # Test-Area r
 
 # ---------------------------------------------------------------------------
 # Extensoes do VS Code
 # ---------------------------------------------------------------------------
 
-if ($Extensoes) {
+if ($Extensoes -and (Test-Area 'vscode')) {
     $lista = Join-Path $raiz 'config\vscode\extensions.txt'
+
+    # O winget nao atualiza o PATH da sessao em curso -- se o VS Code acabou
+    # de ser instalado (mesmo terminal, mesmo setup-windows.ps1), "code" so
+    # aparece juntando o PATH de Machine+User de novo, sem precisar reabrir.
+    if (-not (Test-Comando 'code')) {
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                    [Environment]::GetEnvironmentVariable('Path', 'User')
+    }
+
     if (-not (Test-Comando 'code')) {
         Write-Aviso 'comando "code" nao esta no PATH -- pulando extensoes.'
         Write-Aviso 'Reabra o terminal apos instalar o VS Code e rode de novo.'
@@ -181,5 +248,12 @@ if ($Extensoes) {
 }
 
 Write-Host ''
-Write-Ok 'install concluido.'
-Write-Host 'Confira com:  git config --global --list'
+if ($areas.Count -eq 0) {
+    Write-Ok 'install concluido -- nenhuma area a aplicar para os stacks deste perfil.'
+    exit 0
+}
+Write-Ok "install concluido (areas: $($areas -join ' '))."
+if (Test-Area 'git')    { Write-Host 'Confira com:  git config --global --list' }
+if (Test-Area 'r')      { Write-Host 'Confira com:  R CMD config CFLAGS' }
+if (Test-Area 'vscode') { Write-Host 'Confira com:  code --list-extensions' }
+exit 0

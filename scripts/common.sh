@@ -244,6 +244,8 @@ carregar_perfil() {
   LIBS_PY="${LIBS_PY:-}"
   LIBS_EM_SEGUNDO_PLANO="${LIBS_EM_SEGUNDO_PLANO:-sim}"
   NAVEGADOR="${NAVEGADOR:-nenhum}"
+  # Vazio = padrao do sistema (ver instalar_pacotes em cada setup-*).
+  SUITE_ESCRITORIO="${SUITE_ESCRITORIO:-}"
   VSCODE_EXTENSOES="${VSCODE_EXTENSOES:-base}"
   FEDORA_RPMFUSION="${FEDORA_RPMFUSION:-sim}"
   FEDORA_CODECS="${FEDORA_CODECS:-sim}"

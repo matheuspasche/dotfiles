@@ -174,6 +174,33 @@ case "$NOVO_NAVEGADOR" in
   4) NOVO_NAVEGADOR="nenhum" ;;
 esac
 
+# ------------------------------------------------------- suite de escritorio -
+# So pergunta para quem marcou o stack "escritorio" -- mesma logica da
+# identidade e das extensoes: perguntar isso de quem nao vai usar so confunde.
+NOVO_SUITE_ESCRITORIO="$SUITE_ESCRITORIO"
+case " $NOVO_STACKS " in
+  *" escritorio "*)
+    echo
+    info "5b. Suite de escritorio"
+    padrao_suite="libreoffice"
+    [ "$(detectar_os)" = "gitbash" ] && padrao_suite="microsoft365"
+    echo "   1) libreoffice    de graca, ja no repositorio (padrao no Linux/macOS)"
+    echo "   2) onlyoffice     melhor fidelidade a .docx/.xlsx"
+    echo "   3) microsoft365   exige assinatura (padrao no Windows)"
+    echo "   4) tudo           instala as tres"
+    NOVO_SUITE_ESCRITORIO="$(perguntar_texto '   Escolha (nome ou numero)' "${NOVO_SUITE_ESCRITORIO:-$padrao_suite}")"
+    case "$NOVO_SUITE_ESCRITORIO" in
+      1) NOVO_SUITE_ESCRITORIO="libreoffice" ;;
+      2) NOVO_SUITE_ESCRITORIO="onlyoffice" ;;
+      3) NOVO_SUITE_ESCRITORIO="microsoft365" ;;
+      4) NOVO_SUITE_ESCRITORIO="tudo" ;;
+    esac
+    ;;
+  *)
+    NOVO_SUITE_ESCRITORIO=""
+    ;;
+esac
+
 # --------------------------------------------------------------- extensoes ---
 # Mesma logica da identidade: sem o stack "editor" nao ha VS Code na maquina,
 # entao perguntar quais extensoes instalar nele e pedir uma resposta que nao
@@ -252,6 +279,9 @@ LIBS_EM_SEGUNDO_PLANO="$NOVO_SEGUNDO_PLANO"
 # --- navegador ---
 NAVEGADOR="$NOVO_NAVEGADOR"
 
+# --- escritorio ---
+SUITE_ESCRITORIO="$NOVO_SUITE_ESCRITORIO"
+
 # --- editor ---
 VSCODE_EXTENSOES="$NOVO_VSCODE"
 
@@ -285,6 +315,7 @@ echo "    stacks       $NOVO_STACKS"
 echo "    R            ${NOVO_LIBS_R:-nenhum}"
 echo "    Python       ${NOVO_LIBS_PY:-nenhum}"
 echo "    navegador    $NOVO_NAVEGADOR"
+[ -n "$NOVO_SUITE_ESCRITORIO" ] && echo "    escritorio   $NOVO_SUITE_ESCRITORIO"
 [ "$minutos" -gt 0 ] && echo "    bibliotecas  ~$minutos min de instalacao"
 
 echo
