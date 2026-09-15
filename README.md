@@ -242,6 +242,32 @@ faz o cofre passar de ~0,1 MB para ~30 MB; se incomodar, tire
 `Pictures/wallpapers-dynamic` do `config/segredos.lista` e sincronize pelo
 Syncthing, que ja esta no manifesto.
 
+## Google Drive como pasta local (opcional)
+
+Fora do fluxo principal de proposito: nenhum outro script chama este. Monta o
+Google Drive no Dolphin via `rclone`, em vez do `kio-gdrive` nativo do KDE --
+que usa uma credencial de API compartilhada por todo o KDE no mundo e quebra
+com `Requested resource is forbidden` quando o Google a limita. Passo a passo
+manual completo (instalacao, `rclone config`, mount e o servico systemd) em
+`~/github/tutorial-google-drive-kde-fedora.md`.
+
+```bash
+./scripts/gdrive-mount.sh --instalar              # instala o rclone
+./scripts/gdrive-mount.sh --configurar            # assistente rclone config
+./scripts/gdrive-mount.sh --montar                # monta uma vez em ~/GoogleDrive
+./scripts/gdrive-mount.sh --servico               # monta automaticamente no login (systemd)
+./scripts/gdrive-mount.sh --status                # estado atual (configurado / montado / servico)
+./scripts/gdrive-mount.sh --desmontar             # desmonta
+```
+
+Todos aceitam `[nome-do-remote] [pasta]` como argumentos posicionais (padrao:
+`google_account` e `~/GoogleDrive`) e `--simular` para so mostrar o que
+fariam. `--servico` grava um unit template
+(`config/gdrive/gdrive-mount@.service`) em
+`~/.config/systemd/user/gdrive-mount@.service`, entao a mesma unidade serve
+para montar varias contas -- `gdrive-mount@trabalho.service`,
+`gdrive-mount@pessoal.service`.
+
 ## Hardware
 
 `scripts/hardware.{sh,ps1}` detecta CPU, GPU, placa-mae, rede, bluetooth e
@@ -267,6 +293,7 @@ proprietario, e fone Bluetooth sem os codecs cai no SBC.
 | `scripts/snapshot-*.{sh,ps1}` | Fotografa a maquina antes de formatar |
 | `scripts/cofre.{sh,ps1}` | Cofre cifrado de credenciais (`age`) |
 | `scripts/tema-kde.sh` | Tema e papel de parede do KDE (opcional, fora do fluxo) |
+| `scripts/gdrive-mount.sh` | Google Drive como pasta local via rclone (opcional, fora do fluxo) |
 | `docs/fedora-kde-primeiros-passos.md` | Primeira vez no Fedora KDE |
 | `docs/windows-primeiros-passos.md` | Primeira vez no Windows: WSL, drivers, winget |
 | `docs/nvme-morreu.md` | Recuperacao de emergencia em menos de uma hora |

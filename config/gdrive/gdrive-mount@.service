@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount Google Drive (%i) via rclone
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/rclone mount %i: {{PASTA}} --vfs-cache-mode writes
+ExecStop=/bin/fusermount -u {{PASTA}}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
