@@ -10,6 +10,7 @@
 #   ./scripts/setup-linux.sh --grupo r    so o grupo r, ignorando o perfil
 #   ./scripts/setup-linux.sh --simular    mostra o que faria
 #   ./scripts/setup-linux.sh --sim        nao pergunta nada
+#   ./scripts/setup-linux.sh --verificar  o que o perfil pediu esta instalado?
 #
 # O que sera instalado vem de STACKS no perfil.conf. Sem perfil, so o basico.
 # Para escolher: ./scripts/configurar.sh
@@ -23,11 +24,13 @@ carregar_perfil
 SIMULAR=0
 GRUPO=""
 SIM_A_TUDO=0
+VERIFICAR=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --simular) SIMULAR=1; shift ;;
     --sim)     SIM_A_TUDO=1; shift ;;
+    --verificar) VERIFICAR=1; shift ;;
     --grupo)   GRUPO="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) morre "argumento desconhecido: $1" ;;
@@ -1141,7 +1144,93 @@ pos_instalacao() {
   return 0
 }
 
+# ---------------------------------------------------------------- verificar --
+# Responde a pergunta que aparece depois de todo setup: "pedi isto, veio?".
+# Compara o que o perfil pede com o que esta na maquina, item a item, e diz o
+# motivo quando algo nao veio -- que na maioria das vezes e "o stack que traz
+# esse programa nao esta no perfil", e nao uma falha de instalacao.
+verificar_instalacao() {
+  local g id nome pkg faltando=0 primeiro
+
+  echo
+  info "perfil: STACKS=\"${STACKS:-}\"  NAVEGADOR=\"${NAVEGADOR:-nenhum}\""
+  echo
+
+  while IFS= read -r g; do
+    [ -z "$g" ] && continue
+    primeiro=1
+    while IFS= read -r id; do
+      [ -z "$id" ] && continue
+      nome="$(manifesto_valor "$id" nome)"; nome="${nome:-$id}"
+      pkg="$(manifesto_valor "$id" "$GER")"
+
+      if [ -n "$pkg" ]; then
+        # Multivalor: so conta como presente se TODOS os pedacos estiverem.
+        local p ok_todos=1
+        for p in $pkg; do
+          rpm -q --whatprovides "$p" >/dev/null 2>&1 ||
+            dpkg -s "$p" >/dev/null 2>&1 || ok_todos=0
+        done
+        [ "$ok_todos" = "1" ] && continue
+      else
+        # Sem pacote no gerenciador: instalado por fora (Flatpak, .rpm avulso).
+        case "$(manifesto_valor "$id" linux)" in
+          nao) continue ;;
+          avulso)
+            local fp; fp="$(manifesto_valor "$id" flatpak)"
+            if [ -n "$fp" ]; then
+              flatpak list --app --columns=application 2>/dev/null |
+                grep -qx "$fp" && continue
+            else
+              # uv, duckdb, claude-code, rstudio, quarto: binario no PATH.
+              command -v "$id" >/dev/null 2>&1 && continue
+              [ -x "$HOME/.local/bin/$id" ] && continue
+              [ "$id" = "claude-code" ] && command -v claude >/dev/null 2>&1 && continue
+            fi
+            ;;
+        esac
+      fi
+
+      [ "$primeiro" = "1" ] && { echo "  [$g]"; primeiro=0; }
+      printf '    FALTA  %s\n' "$nome"
+      faltando=$(( faltando + 1 ))
+    done < <(manifesto_ids "$g")
+  done < <(grupos_pedidos)
+
+  # O que ficou de fora por NAO estar em nenhum stack pedido -- a causa mais
+  # comum de "nao instalou": o programa existe no manifesto, mas o stack que
+  # o traz nao foi escolhido.
+  echo
+  local fora=""
+  while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    g="$(manifesto_valor "$id" grupo)"
+    [ "$g" = "navegador" ] && continue
+    case " $(grupos_pedidos | tr '\n' ' ') " in *" $g "*) continue ;; esac
+    nome="$(manifesto_valor "$id" nome)"
+    fora="${fora}    $(printf '%-34s' "${nome:-$id}") stack \"$g\" nao esta no perfil\n"
+  done < <(manifesto_ids)
+
+  if [ -n "$fora" ]; then
+    info "fora do perfil (nao e falha -- e escolha):"
+    printf '%b' "$fora"
+  fi
+
+  echo
+  if [ "$faltando" -eq 0 ]; then
+    ok "tudo o que o perfil pede esta instalado"
+  else
+    aviso "$faltando item(ns) do perfil nao estao instalados -- rode: ./scripts/setup-linux.sh --sim"
+  fi
+  return 0
+}
+
 # -------------------------------------------------------------------- fluxo --
+if [ "$VERIFICAR" = "1" ]; then
+  verificar_instalacao
+  exit 0
+fi
+
 configurar_repos
 instalar_pacotes
 instalar_avulsos
